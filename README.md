@@ -1,14 +1,12 @@
 # SaaS Revenue Assurance: Contract-to-Cash & Customer Unit Economics Auditor
 
-![SaaS Revenue Assurance Dashboard](./design-references/master-dashboard-reference.jpg)
-
 An enterprise-grade financial intelligence, contract reconciliation, and revenue assurance platform designed for modern SaaS businesses. It audits the end-to-end **Contract-to-Cash** lifecycle, identifies revenue leakage, manages billing discrepancies across 8 deterministic anomaly categories, computes customer unit economics with GAAP-compliant COGS allocation, and provides database-grounded natural-language inquiries powered by Google Gemini AI.
 
 ---
 
 ## 🌟 Key Highlights & Design Fidelity
 
-- **Pixel-Accurate Master Dashboard Reproduction**: Faithfully replicates the dark cosmic nebula aesthetic, luminous cyan glowing borders, physical 3D button depth, card perspective hover effects, and radiant crimson alert highlights from the master design reference (`design-references/master-dashboard-reference.jpg`).
+- **Pixel-Accurate Master Dashboard Reproduction**: Faithfully renders the dark cosmic nebula aesthetic, luminous cyan glowing borders, physical 3D button depth, card perspective hover effects, and radiant crimson alert highlights.
 - **Fixed Static Panel Architecture**: All 9 pages feature stable, production-ready static grid layouts with zero floating or random rearrangement of analytical cards.
 - **Precision Financial Calculation Engine**: Utilizes Python `Decimal` and SQL `NUMERIC(14,2)` arithmetic for all monetary metrics, completely eliminating floating-point rounding errors.
 - **Deterministic Anomaly Detection Engine**: Automatically flags 8 discrepancy categories with automated severity scoring, financial exposure calculation, and audit history preservation.
