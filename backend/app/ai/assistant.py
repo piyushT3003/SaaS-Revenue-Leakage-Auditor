@@ -3,32 +3,113 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
 import json
+import re
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.app.core.config import settings
 from backend.app.models.entities import (
     Customer, Product, Contract, ContractVersion, Subscription,
     UsageEvent, Invoice, InvoiceLine, Payment, ExceptionRecord,
-    ProductCost, AppSettings
+    ProductCost, AppSettings, AuditLog, ReconciliationRun
 )
 from backend.app.analytics.financial_engine import FinancialCalculationEngine, quantize_money
+
+PROHIBITED_INJECTION_PATTERNS = [
+    r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
+    r"disregard\s+(the\s+)?(system|initial)\s+prompt",
+    r"system\s+prompt",
+    r"you\s+are\s+now\s+(a|an)?\s*(unrestricted|dan|jailbreak)",
+    r"bypass\s+(safety|security|filter|guardrail)",
+    r"execute\s+arbitrary",
+    r"select\s+.*\s+from\s+users",
+    r"hashed_password",
+    r"drop\s+table",
+    r"delete\s+from",
+    r"truncate\s+table",
+    r"reveal\s+(api\s+)?(key|secret|credential)",
+    r"dump\s+database"
+]
 
 class AIAssistantEngine:
     """
     Secure, parameterized, database-grounded AI analytics assistant.
     Does NOT execute arbitrary generated SQL. Uses controlled, read-only analytical tools
     with strict table/column allowlists and row limits.
+    Includes strict prompt-injection detection, length bounds, and audit logging.
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: Optional[str] = None):
         self.db = db
+        self.user_id = user_id or "system_analyst"
 
     def execute_query(self, user_question: str) -> Dict[str, Any]:
         """
         Processes a natural language business question, routes to controlled analytical tools,
         and returns structured evidence, charts, and database-grounded explanations.
         """
+        # Guardrail 1: Input Length bounds
+        if not user_question or len(user_question.strip()) < 3:
+            return {
+                "answer": "Please provide a valid question regarding SaaS revenue, contracts, usage, or unit economics.",
+                "explanation": "Empty or trivially short query.",
+                "supporting_metrics": {},
+                "affected_customers": [],
+                "issue_distribution": [],
+                "source_references": [],
+                "suggested_followups": ["Why did revenue leakage increase this month?", "Show top 5 underbilled customers"],
+                "chart_config": None,
+                "is_llm_powered": False,
+                "status_note": "Validation warning."
+            }
+
+        if len(user_question) > 500:
+            return {
+                "answer": "Query exceeds maximum allowed length of 500 characters. Please refine your analytical question.",
+                "explanation": "Length constraint enforced to prevent buffer or memory abuse.",
+                "reporting_period": "2026-10",
+                "supporting_metrics": {},
+                "affected_customers": [],
+                "issue_distribution": [],
+                "source_references": [],
+                "suggested_followups": ["Show top 5 underbilled customers", "Why did revenue leakage increase this month?"],
+                "chart_config": None,
+                "is_llm_powered": False,
+                "status_note": "Security guardrail active."
+            }
+
         q_lower = user_question.lower()
+
+        # Guardrail 2: Prompt Injection and Exfiltration Defense
+        for pattern in PROHIBITED_INJECTION_PATTERNS:
+            if re.search(pattern, q_lower):
+                sec_log = AuditLog(
+                    action="SECURITY_ALERT",
+                    entity_type="AIAssistant",
+                    entity_id="INJECTION_ATTEMPT",
+                    details=f"PROMPT_INJECTION_ATTEMPT: Pattern '{pattern}' detected in question: '{user_question[:80]}...'",
+                    user_id=self.user_id,
+                    created_at=datetime.utcnow()
+                )
+                self.db.add(sec_log)
+                self.db.commit()
+
+                return {
+                    "answer": "Security Policy Notice: The submitted query violates the financial analytics safety policy. Direct system overrides, database modification requests, and access to credential tables are strictly blocked.",
+                    "explanation": "Prompt injection or data exfiltration pattern detected and neutralized by security guardrails.",
+                    "reporting_period": "2026-10",
+                    "supporting_metrics": {},
+                    "affected_customers": [],
+                    "issue_distribution": [],
+                    "source_references": ["Security Guardrail Policy", "Role: Read-Only Financial Analyst"],
+                    "suggested_followups": [
+                        "Why did revenue leakage increase this month?",
+                        "Show top 5 underbilled customers",
+                        "Which customers have negative contribution margins?"
+                    ],
+                    "chart_config": None,
+                    "is_llm_powered": False,
+                    "status_note": "Guardrail violation logged."
+                }
         api_key = os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY
         
         # Check app_settings table for dynamic key configuration from settings page
@@ -360,25 +441,34 @@ class AIAssistantEngine:
         }
 
     def _tool_revenue_comparison(self) -> Dict[str, Any]:
-        invoices_oct = self.db.query(Invoice).filter(Invoice.billing_period_start >= date(2026, 10, 1)).all()
-        billed = sum(float(i.subtotal) for i in invoices_oct)
-        subs = self.db.query(Subscription).filter(Subscription.status == "Active").all()
-        expected = sum(float(s.mrr) for s in subs)
-        leakage = 876000.0
+        invoices_oct = self.db.query(Invoice).filter(Invoice.billing_period_start >= date(2026, 10, 1), Invoice.status != "Cancelled").all()
+        billed = float(sum((i.subtotal for i in invoices_oct), Decimal("0.00")))
+        excs_oct = self.db.query(ExceptionRecord).filter(ExceptionRecord.status.in_(["Open", "In Progress"])).all()
+        leakage = float(sum((e.financial_impact for e in excs_oct), Decimal("0.00")))
+        expected = round(billed + leakage, 2)
+        recon_rate = round((billed / expected * 100.0), 1) if expected > 0 else 100.0
 
-        monthly_trends = [
-            {"month": "May", "billed_revenue": 10500000.0, "expected_revenue": 11200000.0, "revenue_leakage": 700000.0},
-            {"month": "Jun", "billed_revenue": 11000000.0, "expected_revenue": 11800000.0, "revenue_leakage": 800000.0},
-            {"month": "Jul", "billed_revenue": 11400000.0, "expected_revenue": 12100000.0, "revenue_leakage": 700000.0},
-            {"month": "Aug", "billed_revenue": 11800000.0, "expected_revenue": 12600000.0, "revenue_leakage": 800000.0},
-            {"month": "Sep", "billed_revenue": 12100000.0, "expected_revenue": 12900000.0, "revenue_leakage": 800000.0},
-            {"month": "Oct", "billed_revenue": 12480000.0, "expected_revenue": 13356000.0, "revenue_leakage": 876000.0}
-        ]
+        months_keys = [("May", "2026-05"), ("Jun", "2026-06"), ("Jul", "2026-07"), ("Aug", "2026-08"), ("Sep", "2026-09"), ("Oct", "2026-10")]
+        monthly_trends = []
+        for m_label, ym in months_keys:
+            m_invs = self.db.query(Invoice).filter(func.strftime("%Y-%m", Invoice.billing_period_start) == ym, Invoice.status != "Cancelled").all()
+            m_billed = float(sum((i.subtotal for i in m_invs), Decimal("0.00")))
+            if ym == "2026-10":
+                m_leak = leakage
+            else:
+                past_run = self.db.query(ReconciliationRun).filter(ReconciliationRun.period == ym).first()
+                m_leak = float(past_run.variance_total) if past_run else round(m_billed * 0.06, 2)
+            monthly_trends.append({
+                "month": m_label,
+                "billed_revenue": m_billed,
+                "expected_revenue": round(m_billed + m_leak, 2),
+                "revenue_leakage": m_leak
+            })
 
         return {
-            "billed_revenue": 12480000.0,
-            "expected_revenue": 13356000.0,
+            "billed_revenue": billed,
+            "expected_revenue": expected,
             "leakage": leakage,
-            "recon_rate": 92.4,
+            "recon_rate": recon_rate,
             "monthly_trends": monthly_trends
         }

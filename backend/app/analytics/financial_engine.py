@@ -14,6 +14,35 @@ def quantize_money(amount: Decimal) -> Decimal:
         amount = Decimal(str(amount))
     return amount.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
+def format_inr(amount: Any, include_symbol: bool = True) -> str:
+    """
+    Formats a number using the Indian Numbering System (Lakhs, Crores).
+    E.g. 12480000 -> ₹1,24,80,000, 876000 -> ₹8,76,000, 60000 -> ₹60,000.
+    """
+    if amount is None:
+        return "₹0" if include_symbol else "0"
+    try:
+        val = int(round(float(amount)))
+    except (ValueError, TypeError):
+        return "₹0" if include_symbol else "0"
+
+    is_neg = val < 0
+    s = str(abs(val))
+    if len(s) <= 3:
+        res = s
+    else:
+        last3 = s[-3:]
+        rest = s[:-3]
+        groups = []
+        while len(rest) > 2:
+            groups.insert(0, rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            groups.insert(0, rest)
+        res = ",".join(groups) + "," + last3
+    prefix = "-" if is_neg else ""
+    return f"{prefix}₹{res}" if include_symbol else f"{prefix}{res}"
+
 class FinancialCalculationEngine:
     """
     Centralized financial calculation engine implementing production-grade,

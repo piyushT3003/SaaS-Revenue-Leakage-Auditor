@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend.app.models.entities import (
     Customer, Product, Contract, ContractVersion, Subscription,
     UsageEvent, Invoice, InvoiceLine, Payment, PaymentAllocation,
-    CreditAdjustment, ReconciliationRun
+    CreditAdjustment, ReconciliationRun, UploadBatch
 )
 from backend.app.analytics.financial_engine import FinancialCalculationEngine, quantize_money
 
@@ -22,15 +22,178 @@ class ReconciliationEngine:
     def __init__(self, db: Session):
         self.db = db
 
-    def execute_reconciliation(
+    def check_data_readiness(
         self,
         period_str: str = "2026-10",
         customer_id: Optional[str] = None,
         product_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
+        Validates all prerequisites before running an audit:
+        - Customer records
+        - Products & pricing rules
+        - Contracts and active contract versions
+        - Subscriptions
+        - Usage records (for metered products)
+        - Invoices
+        - Currency consistency
+        """
+        year, month = map(int, period_str.split("-"))
+        period_start = date(year, month, 1)
+        if month == 12:
+            period_end = date(year, 12, 31)
+        else:
+            import calendar
+            _, last_day = calendar.monthrange(year, month)
+            period_end = date(year, month, last_day)
+
+        cust_count = self.db.query(Customer).count()
+        prod_count = self.db.query(Product).count()
+        contract_count = self.db.query(Contract).count()
+        cv_count = self.db.query(ContractVersion).filter(
+            ContractVersion.effective_from <= period_end,
+            ContractVersion.effective_to >= period_start
+        ).count()
+        sub_count = self.db.query(Subscription).filter(Subscription.status == "Active").count()
+        usage_count = self.db.query(UsageEvent).filter(
+            UsageEvent.usage_date >= period_start,
+            UsageEvent.usage_date <= period_end
+        ).count()
+        inv_count = self.db.query(Invoice).filter(
+            Invoice.billing_period_start <= period_end,
+            Invoice.billing_period_end >= period_start,
+            Invoice.status != "Cancelled"
+        ).count()
+        currencies = [c[0] for c in self.db.query(Customer.billing_currency).distinct().all()]
+
+        checks = [
+            {
+                "name": "Customer Directory",
+                "category": "Customers",
+                "status": "Ready" if cust_count > 0 else "Failed",
+                "count": cust_count,
+                "message": f"{cust_count} customer accounts found" if cust_count > 0 else "No customer accounts found"
+            },
+            {
+                "name": "Product Catalog & Pricing",
+                "category": "Products",
+                "status": "Ready" if prod_count > 0 else "Failed",
+                "count": prod_count,
+                "message": f"{prod_count} catalog products with active pricing" if prod_count > 0 else "No products configured"
+            },
+            {
+                "name": "Commercial Contracts",
+                "category": "Contracts",
+                "status": "Ready" if contract_count > 0 else "Failed",
+                "count": contract_count,
+                "message": f"{contract_count} commercial contracts active" if contract_count > 0 else "No contracts found"
+            },
+            {
+                "name": "Contract Versions Coverage",
+                "category": "Contract Versions",
+                "status": "Ready" if cv_count > 0 else "Warning",
+                "count": cv_count,
+                "message": f"{cv_count} versions cover period {period_str}" if cv_count > 0 else f"No versions cover {period_str}"
+            },
+            {
+                "name": "Active Subscriptions",
+                "category": "Subscriptions",
+                "status": "Ready" if sub_count > 0 else "Failed",
+                "count": sub_count,
+                "message": f"{sub_count} active subscriptions eligible" if sub_count > 0 else "No active subscriptions"
+            },
+            {
+                "name": "Metered Telemetry Usage",
+                "category": "Usage Events",
+                "status": "Ready" if usage_count > 0 else "Warning",
+                "count": usage_count,
+                "message": f"{usage_count} telemetry usage events logged for {period_str}"
+            },
+            {
+                "name": "Invoices & Billing Register",
+                "category": "Invoices",
+                "status": "Ready" if inv_count > 0 else "Warning",
+                "count": inv_count,
+                "message": f"{inv_count} billing invoices available for {period_str}"
+            },
+            {
+                "name": "Currency Consistency",
+                "category": "Currency",
+                "status": "Ready" if len(currencies) <= 1 else "Warning",
+                "count": len(currencies),
+                "message": f"Uniform currency: {currencies[0] if currencies else 'INR'}" if len(currencies) <= 1 else f"Multiple currencies: {currencies}"
+            }
+        ]
+
+        blocking_reasons = []
+        if cust_count == 0:
+            blocking_reasons.append("Customer directory is empty. Import customers before running audit.")
+        if prod_count == 0:
+            blocking_reasons.append("Product catalog is empty. Configure products before running audit.")
+        if sub_count == 0:
+            blocking_reasons.append("No active subscriptions found for cohort.")
+
+        is_ready = len(blocking_reasons) == 0
+
+        return {
+            "period": period_str,
+            "is_ready": is_ready,
+            "checks": checks,
+            "blocking_reasons": blocking_reasons
+        }
+
+    def get_audit_freshness(self, period_str: str = "2026-10") -> Dict[str, Any]:
+        """
+        Determines if the latest audit for this period is fresh or stale.
+        An audit becomes stale when relevant source data changes after that audit.
+        """
+        latest_run = (
+            self.db.query(ReconciliationRun)
+            .filter(ReconciliationRun.period == period_str)
+            .order_by(ReconciliationRun.run_at.desc())
+            .first()
+        )
+        if not latest_run:
+            return {
+                "period": period_str,
+                "status": "Ready",
+                "freshness": "Ready to Run",
+                "latest_run_id": None,
+                "last_run_at": None,
+                "is_stale": False,
+                "reason": "Ready to run initial audit for this period"
+            }
+
+        newer_batch = (
+            self.db.query(UploadBatch)
+            .filter(
+                UploadBatch.uploaded_at > latest_run.run_at,
+                UploadBatch.status == "Imported"
+            )
+            .first()
+        )
+        is_stale = newer_batch is not None
+
+        return {
+            "period": period_str,
+            "status": "Stale" if is_stale else "Successful",
+            "freshness": "Stale (New source records imported)" if is_stale else "Fresh",
+            "latest_run_id": latest_run.run_number,
+            "last_run_at": latest_run.run_at.isoformat(),
+            "is_stale": is_stale,
+            "reason": "New source records were imported since the last audit run. Re-run recommended." if is_stale else "Audit is complete and fresh."
+        }
+
+    def execute_reconciliation(
+        self,
+        period_str: str = "2026-10",
+        customer_id: Optional[str] = None,
+        product_id: Optional[str] = None,
+        record_run: bool = False
+    ) -> Dict[str, Any]:
+        """
         Runs comprehensive reconciliation for the given period.
-        Stores the run in reconciliation_runs table and returns rows and summary.
+        Optionally records the run in reconciliation_runs table if record_run=True.
         """
         year, month = map(int, period_str.split("-"))
         # Period bounds
@@ -113,7 +276,7 @@ class ReconciliationEngine:
                 matching_line_descriptions = []
                 for inv in matching_invoices:
                     for line in inv.lines:
-                        if line.product_id == prod.id or prod.name.lower() in line.description.lower():
+                        if line.product_id == prod.id or prod.name.lower() in line.description.lower() or (line.line_type == "Adjustment" and (not line.product_id or line.product_id == prod.id)):
                             invoiced_for_sub += Decimal(str(line.line_total))
                             matching_line_descriptions.append(line.description)
 
@@ -170,31 +333,32 @@ class ReconciliationEngine:
         total_obligations = matched_count + unmatched_count
         recon_rate = FinancialCalculationEngine.calculate_reconciliation_rate(matched_count, total_obligations)
 
-        # Record run history
-        run_count = self.db.query(ReconciliationRun).count()
-        run_rec = ReconciliationRun(
-            run_number=f"RUN-{year}{month:02d}-{run_count + 1:03d}",
-            period=period_str,
-            customer_id=customer_id,
-            product_id=product_id,
-            total_eligible_obligations=total_obligations,
-            matched_obligations=matched_count,
-            mismatched_obligations=unmatched_count,
-            expected_total=total_expected,
-            invoiced_total=total_invoiced,
-            variance_total=total_variance,
-            reconciliation_rate=recon_rate,
-            status="Completed",
-            summary_json=json.dumps({
-                "period": period_str,
-                "matched": matched_count,
-                "unmatched": unmatched_count,
-                "rate": float(recon_rate)
-            }),
-            run_at=datetime.utcnow()
-        )
-        self.db.add(run_rec)
-        self.db.commit()
+        # Record run history only when requested (e.g. on POST /reconciliation/run)
+        if record_run:
+            run_count = self.db.query(ReconciliationRun).count()
+            run_rec = ReconciliationRun(
+                run_number=f"RUN-{year}{month:02d}-{run_count + 1:03d}",
+                period=period_str,
+                customer_id=customer_id,
+                product_id=product_id,
+                total_eligible_obligations=total_obligations,
+                matched_obligations=matched_count,
+                mismatched_obligations=unmatched_count,
+                expected_total=total_expected,
+                invoiced_total=total_invoiced,
+                variance_total=total_variance,
+                reconciliation_rate=recon_rate,
+                status="Completed",
+                summary_json=json.dumps({
+                    "period": period_str,
+                    "matched": matched_count,
+                    "unmatched": unmatched_count,
+                    "rate": float(recon_rate)
+                }),
+                run_at=datetime.utcnow()
+            )
+            self.db.add(run_rec)
+            self.db.commit()
 
         # Query recent runs
         recent_runs = (
@@ -217,6 +381,9 @@ class ReconciliationEngine:
             for r in recent_runs
         ]
 
+        freshness_info = self.get_audit_freshness(period_str)
+        readiness_info = self.check_data_readiness(period_str, customer_id, product_id)
+
         return {
             "period": period_str,
             "summary": {
@@ -226,8 +393,13 @@ class ReconciliationEngine:
                 "reconciliation_rate": float(recon_rate),
                 "matched_records": matched_count,
                 "unmatched_records": unmatched_count,
-                "total_obligations": total_obligations
+                "total_obligations": total_obligations,
+                "audit_status": freshness_info["status"],
+                "data_freshness": freshness_info["freshness"],
+                "latest_run_id": freshness_info["latest_run_id"]
             },
             "rows": reconciliation_rows,
-            "run_history": run_history
+            "run_history": run_history,
+            "readiness": readiness_info,
+            "audit_status": freshness_info
         }

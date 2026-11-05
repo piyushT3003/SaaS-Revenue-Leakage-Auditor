@@ -5,6 +5,10 @@ import {
   Sliders, ShieldCheck, UserCheck, Monitor, HelpCircle
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { Interactive3DCard } from '../../components/3d/Interactive3DCard';
+import { MagneticButton } from '../../components/3d/MagneticButton';
+import { StaggeredContainer } from '../../components/3d/StaggeredContainer';
 
 export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'rbac' | 'thresholds' | 'ai' | 'accessibility' | 'audit'>('general');
@@ -159,9 +163,9 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <PageTransition className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 volumetric-glow">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
             <span>System</span>
@@ -174,19 +178,19 @@ export const SettingsPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           {saveSuccess && (
-            <div className="flex items-center space-x-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-3 py-1.5 rounded-xl animate-in fade-in">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="flex items-center space-x-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-500/50 px-3 py-1.5 rounded-xl hologram-glow animate-in fade-in">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Settings Saved</span>
             </div>
           )}
-          <button
+          <MagneticButton
             onClick={handleSaveSettings}
             disabled={saving}
             className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 transition-all shadow-sm"
           >
             {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             <span>Save Configuration</span>
-          </button>
+          </MagneticButton>
         </div>
       </div>
 
@@ -206,7 +210,7 @@ export const SettingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap btn-3d ${
                 isActive
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
@@ -289,7 +293,7 @@ export const SettingsPage: React.FC = () => {
 
             <button
               onClick={() => setShowAddUserModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors btn-3d"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Member</span>
@@ -309,7 +313,7 @@ export const SettingsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={u.id} className="table-row-hover hover:bg-slate-800/30 transition-colors">
                     <td className="py-2.5 px-3 font-semibold text-white flex items-center space-x-2">
                       <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 text-[10px] font-bold flex items-center justify-center">
                         {u.full_name?.slice(0, 2).toUpperCase()}
@@ -351,7 +355,7 @@ export const SettingsPage: React.FC = () => {
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <Interactive3DCard className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
                 <label className="text-xs font-semibold text-white block mb-1">Underbilling Sensitivity Threshold (₹)</label>
                 <p className="text-[10px] text-slate-400 mb-2">Discrepancies exceeding this amount automatically open high-priority exceptions</p>
                 <input
@@ -360,9 +364,9 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setSettingsData({ ...settingsData, underbilling_threshold: Number(e.target.value) })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                 />
-              </div>
+              </Interactive3DCard>
 
-              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <Interactive3DCard className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
                 <label className="text-xs font-semibold text-white block mb-1">Overbilling Tolerance Threshold (₹)</label>
                 <p className="text-[10px] text-slate-400 mb-2">Triggers billing discrepancy alerts to avoid customer churn and disputes</p>
                 <input
@@ -371,9 +375,9 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setSettingsData({ ...settingsData, overbilling_threshold: Number(e.target.value) })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                 />
-              </div>
+              </Interactive3DCard>
 
-              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <Interactive3DCard className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
                 <label className="text-xs font-semibold text-white block mb-1">Pricing Mismatch Tolerance (%)</label>
                 <p className="text-[10px] text-slate-400 mb-2">Percentage difference between contract price schedule and invoiced line items</p>
                 <input
@@ -383,9 +387,9 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setSettingsData({ ...settingsData, pricing_mismatch_pct: Number(e.target.value) })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                 />
-              </div>
+              </Interactive3DCard>
 
-              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+              <Interactive3DCard className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
                 <label className="text-xs font-semibold text-white block mb-1">Critical Severity Exposure Limit (₹)</label>
                 <p className="text-[10px] text-slate-400 mb-2">Exceptions above this threshold escalate to C-suite executive dashboard alerts</p>
                 <input
@@ -394,7 +398,7 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setSettingsData({ ...settingsData, critical_exposure_threshold: Number(e.target.value) })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                 />
-              </div>
+              </Interactive3DCard>
             </div>
           </div>
         </div>
@@ -459,7 +463,7 @@ export const SettingsPage: React.FC = () => {
                 type="button"
                 onClick={handleTestAI}
                 disabled={aiTestResult.status === 'testing'}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/50 border border-cyan-800/50 hover:bg-cyan-900/50 transition-colors flex items-center space-x-1.5"
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/50 border border-cyan-800/50 hover:bg-cyan-900/50 transition-colors flex items-center space-x-1.5 btn-3d"
               >
                 {aiTestResult.status === 'testing' ? (
                   <>
@@ -565,7 +569,7 @@ export const SettingsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={log.id} className="table-row-hover hover:bg-slate-800/30 transition-colors">
                     <td className="py-2.5 px-3 text-[11px] text-slate-400 font-mono">
                       {log.created_at?.slice(0, 19).replace('T', ' ')}
                     </td>
@@ -644,13 +648,13 @@ export const SettingsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 transition-colors btn-3d"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors btn-3d"
                 >
                   Create User
                 </button>
@@ -659,6 +663,6 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 };

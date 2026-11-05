@@ -1,15 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.models.entities import User
 from backend.app.schemas.api_schemas import AIQueryRequest, AIQueryResponse
 from backend.app.ai.assistant import AIAssistantEngine
 from backend.app.exports.exporter import ExportService
+from backend.app.security.auth import get_current_user
 
 router = APIRouter()
 
 @router.post("/query", response_model=AIQueryResponse)
-def ask_ai_investigation(payload: AIQueryRequest, db: Session = Depends(get_db)):
-    engine = AIAssistantEngine(db)
+def ask_ai_investigation(
+    payload: AIQueryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    engine = AIAssistantEngine(db, user_id=current_user.id)
     result = engine.execute_query(payload.question)
     return result
 
@@ -25,8 +31,12 @@ def get_suggested_questions():
     ]
 
 @router.post("/export-report")
-def export_ai_investigation_report(payload: AIQueryRequest, db: Session = Depends(get_db)):
-    engine = AIAssistantEngine(db)
+def export_ai_investigation_report(
+    payload: AIQueryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    engine = AIAssistantEngine(db, user_id=current_user.id)
     result = engine.execute_query(payload.question)
 
     headers = ["Investigation Field", "Details"]

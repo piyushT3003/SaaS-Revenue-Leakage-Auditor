@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Building, FileText, AlertTriangle, Layers, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -74,15 +75,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div 
-        className="relative w-full max-w-2xl bg-[#0d1629] border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden shadow-[0_0_40px_rgba(6,182,212,0.15)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Search Input Bar */}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/75 backdrop-blur-md"
+          />
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: -15 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: -15 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="relative w-full max-w-2xl bg-[#0d1629] border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden shadow-[0_0_40px_rgba(6,182,212,0.15)] z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Search Input Bar */}
         <div className="flex items-center px-4 py-3.5 border-b border-slate-800">
           <Search className="w-5 h-5 text-cyan-400 shrink-0 mr-3" />
           <input
@@ -179,7 +191,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             );
           })}
         </div>
-      </div>
+      </motion.div>
     </div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, Send, Database, ShieldCheck, Download, Trash2,
   ChevronDown, ChevronUp, ArrowRight, ExternalLink, RefreshCw,
@@ -11,6 +12,9 @@ import {
 } from 'recharts';
 import { api } from '../../services/api';
 import { AIQueryResponse } from '../../types';
+import { AIHologramIndicator, AIState } from '../../components/3d/AIHologramIndicator';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { MagneticButton } from '../../components/3d/MagneticButton';
 
 interface MessageItem {
   id: string;
@@ -21,12 +25,23 @@ interface MessageItem {
 }
 
 export const AIAssistantPage: React.FC = () => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [inputQuestion, setInputQuestion] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isResponding, setIsResponding] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<Array<{ question: string; category: string; icon: string }>>([]);
   const [expandedCalculations, setExpandedCalculations] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const getAIState = (): AIState => {
+    if (loading) return 'processing';
+    if (isResponding) return 'responding';
+    if (inputQuestion.trim().length > 0) return 'listening';
+    return 'idle';
+  };
+
+  const aiState = getAIState();
 
   useEffect(() => {
     // Fetch suggested questions
@@ -105,6 +120,8 @@ export const AIAssistantPage: React.FC = () => {
         }
       ]);
       setExpandedCalculations((prev) => ({ ...prev, [assistantMsgId]: true }));
+      setIsResponding(true);
+      setTimeout(() => setIsResponding(false), 3500);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -158,7 +175,7 @@ export const AIAssistantPage: React.FC = () => {
   const chartColors = ['#00f0ff', '#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] space-y-3 animate-in fade-in duration-300">
+    <PageTransition className="flex flex-col h-[calc(100vh-5.5rem)] space-y-3">
       {/* Top Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-800 flex-shrink-0">
         <div>
@@ -175,10 +192,27 @@ export const AIAssistantPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {/* 3D Holographic AI Status Monitor */}
+          <div className="flex items-center space-x-2 px-3 py-1 rounded-xl bg-slate-900/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+            <AIHologramIndicator state={aiState} size={28} />
+            <div className="flex flex-col">
+              <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold leading-none">Neural Core</span>
+              <span className={`text-[10px] font-bold capitalize leading-tight ${
+                aiState === 'processing' ? 'text-purple-400 animate-pulse' :
+                aiState === 'listening' ? 'text-emerald-400' :
+                aiState === 'responding' ? 'text-cyan-400' : 'text-slate-300'
+              }`}>{aiState}</span>
+            </div>
+          </div>
+
           {messages.length > 0 && (
             <button
-              onClick={() => setMessages([])}
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear the current conversation view?")) {
+                  setMessages([]);
+                }
+              }}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-400" />
@@ -192,8 +226,11 @@ export const AIAssistantPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.15)]">
-              <Sparkles className="w-7 h-7" />
+            <div className="flex flex-col items-center justify-center">
+              <AIHologramIndicator state={aiState} size={100} />
+              <div className="mt-3 px-3 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                AI Engine State: {aiState}
+              </div>
             </div>
             <div className="max-w-md">
               <h2 className="text-lg font-bold text-white">How can I assist your financial investigation?</h2>
@@ -333,7 +370,7 @@ export const AIAssistantPage: React.FC = () => {
                       </div>
                       <div className="space-y-1.5">
                         {res.affected_customers.map((cust, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-800/40 hover:bg-slate-800/70 transition-colors">
+                          <div key={idx} className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-800/40 hover:bg-slate-800/70 transition-colors">
                             <span className="font-medium text-slate-200">
                               {cust.name} {cust.code && <span className="text-[10px] text-slate-400 font-mono">({cust.code})</span>}
                             </span>
@@ -346,6 +383,20 @@ export const AIAssistantPage: React.FC = () => {
                                   {cust.reason}
                                 </span>
                               )}
+                              <button
+                                onClick={() => navigate(`/customers?search=${encodeURIComponent(cust.name)}`)}
+                                className="btn-3d px-2 py-0.5 rounded-md bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/50 text-[10px] text-cyan-300 font-medium flex items-center space-x-1"
+                              >
+                                <span>Account</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </button>
+                              <button
+                                onClick={() => navigate(`/exceptions?search=${encodeURIComponent(cust.name)}`)}
+                                className="btn-3d px-2 py-0.5 rounded-md bg-rose-950/80 hover:bg-rose-900 border border-rose-700/50 text-[10px] text-rose-300 font-medium flex items-center space-x-1"
+                              >
+                                <span>Exceptions</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -447,16 +498,16 @@ export const AIAssistantPage: React.FC = () => {
             placeholder="Ask anything about billing leakage, contracts, customer unit economics, or anomalies..."
             className="w-full bg-slate-900/90 border border-slate-700/80 focus:border-cyan-500 rounded-2xl pl-4 pr-24 py-3 text-xs text-white placeholder-slate-500 focus:outline-none shadow-[0_0_20px_rgba(0,240,255,0.08)] transition-all"
           />
-          <button
+          <MagneticButton
             type="submit"
             disabled={!inputQuestion.trim() || loading}
             className="absolute right-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 shadow-sm"
           >
             <span>Ask</span>
             <Send className="w-3 h-3" />
-          </button>
+          </MagneticButton>
         </form>
       </div>
-    </div>
+    </PageTransition>
   );
 };

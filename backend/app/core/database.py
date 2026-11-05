@@ -6,13 +6,22 @@ from backend.app.core.config import settings
 
 # Setup engine with appropriate parameters for SQLite vs PostgreSQL
 connect_args = {}
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": settings.DB_POOL_PRE_PING,
+}
+
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    engine_kwargs["pool_recycle"] = settings.DB_POOL_RECYCLE
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
 
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
-    echo=False
+    **engine_kwargs
 )
 
 # Enable foreign keys for SQLite

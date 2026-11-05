@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Coins, TrendingUp, TrendingDown, Users, AlertTriangle, ShieldCheck,
   Download, Filter, Search, Info, HelpCircle, ArrowUpRight, ArrowDownRight,
@@ -10,8 +11,15 @@ import {
 } from 'recharts';
 import { api } from '../../services/api';
 import { UnitEconomicsData } from '../../types';
+import { Interactive3DCard } from '../../components/3d/Interactive3DCard';
+import { AnimatedNumber } from '../../components/3d/AnimatedNumber';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { StaggeredContainer } from '../../components/3d/StaggeredContainer';
+import { MagneticButton } from '../../components/3d/MagneticButton';
+import { WhatIfSimulatorModal } from '../../components/3d/WhatIfSimulatorModal';
 
 export const UnitEconomicsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<UnitEconomicsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('2026-10');
@@ -20,6 +28,7 @@ export const UnitEconomicsPage: React.FC = () => {
   const [sortField, setSortField] = useState<'revenue' | 'direct_cost' | 'contribution' | 'margin_pct'>('contribution');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showMethodologyModal, setShowMethodologyModal] = useState(false);
+  const [showWhatIfModal, setShowWhatIfModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -73,9 +82,9 @@ export const UnitEconomicsPage: React.FC = () => {
   const costColors = ['#00f0ff', '#3b82f6', '#8b5cf6', '#f43f5e', '#10b981'];
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <PageTransition className="space-y-5">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 volumetric-glow">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
             <span>Customer</span>
@@ -88,17 +97,25 @@ export const UnitEconomicsPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <button
+            onClick={() => setShowWhatIfModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-300 bg-cyan-950/40 border border-cyan-500/40 hover:bg-cyan-900/50 transition-colors btn-3d shadow-sm"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+            <span>What-If Simulator</span>
+          </button>
+
+          <MagneticButton
             onClick={() => setShowMethodologyModal(true)}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-cyan-400 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/50 transition-colors"
           >
             <Info className="w-3.5 h-3.5" />
             <span>Allocation Methodology</span>
-          </button>
+          </MagneticButton>
 
           <a
             href={api.exportUnitEconomics()}
             download="unit_economics_report.csv"
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all shadow-sm"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all shadow-sm btn-3d"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -107,9 +124,9 @@ export const UnitEconomicsPage: React.FC = () => {
       </div>
 
       {/* TOP ROW: 4 PRIMARY UNIT ECONOMICS KPI CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StaggeredContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: ARPC */}
-        <div className="glass-panel p-4 rounded-2xl border border-cyan-500/20 relative overflow-hidden group">
+        <Interactive3DCard className="glass-panel p-4 rounded-2xl border border-cyan-500/20 relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
               <Coins className="w-4 h-4" />
@@ -120,13 +137,15 @@ export const UnitEconomicsPage: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">Average Revenue Per Customer (ARPC)</span>
-            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">{formatCurrency(data.arpc)}</div>
+            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.arpc} prefix="₹" />
+            </div>
             <p className="text-[10px] text-slate-500 mt-1">Monthly net billed revenue / active customers</p>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 2: ACPC */}
-        <div className="glass-panel p-4 rounded-2xl border border-blue-500/20 relative overflow-hidden group">
+        <Interactive3DCard className="glass-panel p-4 rounded-2xl border border-blue-500/20 relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <Layers className="w-4 h-4" />
@@ -137,13 +156,15 @@ export const UnitEconomicsPage: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">Average Cost Per Customer (ACPC)</span>
-            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">{formatCurrency(data.acpc)}</div>
+            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.acpc} prefix="₹" />
+            </div>
             <p className="text-[10px] text-slate-500 mt-1">Direct cloud, compute & support infrastructure</p>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 3: Contribution Per Customer */}
-        <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 relative overflow-hidden group">
+        <Interactive3DCard className="glass-panel p-4 rounded-2xl border border-emerald-500/20 relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
               <TrendingUp className="w-4 h-4" />
@@ -154,13 +175,15 @@ export const UnitEconomicsPage: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">Contribution Per Customer</span>
-            <div className="text-2xl font-bold text-emerald-400 tracking-tight mt-0.5">{formatCurrency(data.contribution_per_customer)}</div>
+            <div className="text-2xl font-bold text-emerald-400 tracking-tight mt-0.5">
+              <AnimatedNumber value={data.contribution_per_customer} prefix="₹" />
+            </div>
             <p className="text-[10px] text-slate-500 mt-1">Gross profit margin generated per customer</p>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 4: Overall Contribution Margin % */}
-        <div className="glass-panel p-4 rounded-2xl border border-cyan-500/20 relative overflow-hidden group shadow-[0_0_20px_rgba(0,240,255,0.05)]">
+        <Interactive3DCard className="glass-panel p-4 rounded-2xl border border-cyan-500/20 relative overflow-hidden group shadow-[0_0_20px_rgba(0,240,255,0.05)]">
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
               <ShieldCheck className="w-4 h-4" />
@@ -171,54 +194,62 @@ export const UnitEconomicsPage: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">Overall Contribution Margin</span>
-            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">{data.overall_contribution_margin.toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.overall_contribution_margin} suffix="%" decimals={1} />
+            </div>
             <div className="w-full bg-slate-800/80 rounded-full h-1.5 mt-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-1.5 rounded-full"
+                className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-1.5 rounded-full transition-all duration-1000"
                 style={{ width: `${Math.min(data.overall_contribution_margin, 100)}%` }}
               />
             </div>
           </div>
-        </div>
-      </div>
+        </Interactive3DCard>
+      </StaggeredContainer>
 
       {/* SECOND ROW: CUSTOMER PROFITABILITY COHORTS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-panel p-4 rounded-xl border border-emerald-500/20 flex items-center space-x-3">
+      <StaggeredContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Interactive3DCard className="glass-panel p-4 rounded-xl border border-emerald-500/20 flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
             <div className="text-xs text-slate-400">Profitable Cohort (&gt; 40% Margin)</div>
-            <div className="text-lg font-bold text-white">{data.profitable_customers_count} Customers</div>
+            <div className="text-lg font-bold text-white">
+              <AnimatedNumber value={data.profitable_customers_count} suffix=" Customers" />
+            </div>
             <div className="text-[11px] text-emerald-400 font-medium">
               {((data.profitable_customers_count / (data.profitable_customers_count + data.at_risk_customers_count + data.unprofitable_customers_count)) * 100).toFixed(1)}% of total customer base
             </div>
           </div>
-        </div>
+        </Interactive3DCard>
 
-        <div className="glass-panel p-4 rounded-xl border border-amber-500/20 flex items-center space-x-3">
+        <Interactive3DCard className="glass-panel p-4 rounded-xl border border-amber-500/20 flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
             <div className="text-xs text-slate-400">At-Risk Cohort (0% - 40% Margin)</div>
-            <div className="text-lg font-bold text-white">{data.at_risk_customers_count} Customers</div>
+            <div className="text-lg font-bold text-white">
+              <AnimatedNumber value={data.at_risk_customers_count} suffix=" Customers" />
+            </div>
             <div className="text-[11px] text-amber-400 font-medium">Requires price tier adjustment or cloud optimization</div>
           </div>
-        </div>
+        </Interactive3DCard>
 
-        <div className="glass-panel p-4 rounded-xl border border-rose-500/30 flex items-center space-x-3 shadow-[0_0_15px_rgba(225,29,72,0.1)]">
+        <Interactive3DCard className="glass-panel p-4 rounded-xl border border-rose-500/30 flex items-center space-x-3 shadow-[0_0_15px_rgba(225,29,72,0.1)]">
           <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
             <TrendingDown className="w-5 h-5" />
           </div>
           <div>
             <div className="text-xs text-slate-400">Unprofitable Cohort (&lt; 0% Margin)</div>
-            <div className="text-lg font-bold text-white">{data.unprofitable_customers_count} Customers</div>
+            <div className="text-lg font-bold text-white">
+              <AnimatedNumber value={data.unprofitable_customers_count} suffix=" Customers" />
+            </div>
             <div className="text-[11px] text-rose-400 font-medium">Service cost exceeds contract invoice value</div>
           </div>
-        </div>
-      </div>
+        </Interactive3DCard>
+      </StaggeredContainer>
 
       {/* THIRD ROW: REVENUE VS COST TRENDS & DIRECT COST BREAKDOWN */}
       <div className="grid grid-cols-12 gap-5">
@@ -285,9 +316,9 @@ export const UnitEconomicsPage: React.FC = () => {
                     return [formatCurrency(Number(val)), name === 'revenue' ? 'Revenue' : 'Direct Cost'];
                   }}
                 />
-                <Area yAxisId="left" type="monotone" dataKey="revenue" fill="url(#revenueGrad)" stroke="#00f0ff" strokeWidth={2} />
-                <Bar yAxisId="left" dataKey="cost" fill="#f43f5e" radius={[4, 4, 0, 0]} opacity={0.7} barSize={24} />
-                <Line yAxisId="right" type="monotone" dataKey="margin_pct" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} />
+                <Area yAxisId="left" type="monotone" dataKey="revenue" fill="url(#revenueGrad)" stroke="#00f0ff" strokeWidth={2} isAnimationActive={true} animationDuration={900} />
+                <Bar yAxisId="left" dataKey="cost" fill="#f43f5e" radius={[4, 4, 0, 0]} opacity={0.7} barSize={24} isAnimationActive={true} animationDuration={900} />
+                <Line yAxisId="right" type="monotone" dataKey="margin_pct" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} isAnimationActive={true} animationDuration={900} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -314,6 +345,8 @@ export const UnitEconomicsPage: React.FC = () => {
                     innerRadius={45}
                     outerRadius={65}
                     paddingAngle={4}
+                    isAnimationActive={true}
+                    animationDuration={900}
                   >
                     {data.cost_breakdown.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={costColors[index % costColors.length]} />
@@ -522,9 +555,16 @@ export const UnitEconomicsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredCustomers.slice(0, 15).map((c) => (
-                <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
+                <tr
+                  key={c.id}
+                  onClick={() => navigate(`/customers?id=${c.id}`)}
+                  className="table-row-hover hover:bg-slate-800/40 transition-colors cursor-pointer group"
+                >
                   <td className="py-2.5 px-3">
-                    <div className="font-semibold text-white">{c.customer_name}</div>
+                    <div className="font-semibold text-white group-hover:text-cyan-400 transition-colors flex items-center space-x-1.5">
+                      <span>{c.customer_name}</span>
+                      <ArrowUpRight className="w-3 h-3 text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                     <div className="text-[10px] text-slate-500 font-mono">{c.customer_code}</div>
                   </td>
                   <td className="py-2.5 px-3 text-slate-400">{c.segment}</td>
@@ -631,6 +671,12 @@ export const UnitEconomicsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* What-If Revenue Recovery Simulator 3D Modal */}
+      <WhatIfSimulatorModal
+        isOpen={showWhatIfModal}
+        onClose={() => setShowWhatIfModal(false)}
+      />
+    </PageTransition>
   );
 };

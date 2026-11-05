@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Form, status
 from sqlalchemy.orm import Session
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import Optional, List
 import uuid
+from pydantic import BaseModel
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.models.entities import (
     Invoice, InvoiceLine, Payment, PaymentAllocation, CreditAdjustment,
-    Customer, Product, AuditLog
+    Customer, Product, AuditLog, ExceptionRecord, User
 )
 from backend.app.schemas.api_schemas import (
     InvoiceListItem, InvoiceDetail, DraftInvoiceCreate,
@@ -15,6 +17,7 @@ from backend.app.schemas.api_schemas import (
 )
 from backend.app.analytics.financial_engine import FinancialCalculationEngine, quantize_money
 from backend.app.exports.exporter import ExportService
+from backend.app.security.auth import require_role, get_current_user
 
 router = APIRouter()
 
@@ -157,7 +160,11 @@ def get_invoice_detail(id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/invoices/draft")
-def create_draft_invoice(payload: DraftInvoiceCreate, db: Session = Depends(get_db)):
+def create_draft_invoice(
+    payload: DraftInvoiceCreate,
+    current_user: User = Depends(require_role(["Admin", "Analyst"])),
+    db: Session = Depends(get_db)
+):
     cust = db.query(Customer).filter(Customer.id == payload.customer_id).first()
     if not cust:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -212,6 +219,7 @@ def create_draft_invoice(payload: DraftInvoiceCreate, db: Session = Depends(get_
         entity_type="Invoice",
         entity_id=invoice.id,
         details=f"Draft invoice {inv_num} created for {cust.name} (₹{total:,.2f})",
+        user_id=current_user.id,
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -284,7 +292,11 @@ def list_payments(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=20
     }
 
 @router.post("/payments")
-def record_payment(payload: PaymentRecordRequest, db: Session = Depends(get_db)):
+def record_payment(
+    payload: PaymentRecordRequest,
+    current_user: User = Depends(require_role(["Admin", "Analyst"])),
+    db: Session = Depends(get_db)
+):
     cust = db.query(Customer).filter(Customer.id == payload.customer_id).first()
     if not cust:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -307,12 +319,28 @@ def record_payment(payload: PaymentRecordRequest, db: Session = Depends(get_db))
     )
     db.add(pmt)
 
-    # Allocate to specific invoice if provided
+    # Allocate to specific invoice if provided, otherwise FIFO across customer unpaid invoices
     allocated_to_inv = False
-    if payload.invoice_id:
-        inv = db.query(Invoice).filter(Invoice.id == payload.invoice_id).first()
-        if inv and inv.balance_due > Decimal("0.00"):
-            alloc_amt = min(payment_amt, Decimal(str(inv.balance_due)))
+    remaining_to_allocate = payment_amt
+
+    try:
+        inv_query = db.query(Invoice).filter(Invoice.balance_due > Decimal("0.00"), Invoice.status != "Cancelled")
+        if not settings.DATABASE_URL.startswith("sqlite"):
+            inv_query = inv_query.with_for_update()
+
+        if payload.invoice_id:
+            target_invoices = inv_query.filter(Invoice.id == payload.invoice_id).all()
+        else:
+            target_invoices = (
+                inv_query.filter(Invoice.customer_id == cust.id)
+                .order_by(Invoice.due_date.asc(), Invoice.issue_date.asc())
+                .all()
+            )
+
+        for inv in target_invoices:
+            if remaining_to_allocate <= Decimal("0.00"):
+                break
+            alloc_amt = min(remaining_to_allocate, Decimal(str(inv.balance_due)))
             alloc = PaymentAllocation(
                 id=str(uuid.uuid4()),
                 payment_id=pmt_id,
@@ -322,8 +350,8 @@ def record_payment(payload: PaymentRecordRequest, db: Session = Depends(get_db))
             )
             db.add(alloc)
 
-            pmt.allocated_amount = alloc_amt
-            pmt.unallocated_amount = payment_amt - alloc_amt
+            pmt.allocated_amount += alloc_amt
+            remaining_to_allocate -= alloc_amt
 
             inv.paid_amount += alloc_amt
             inv.balance_due -= alloc_amt
@@ -333,25 +361,127 @@ def record_payment(payload: PaymentRecordRequest, db: Session = Depends(get_db))
                 inv.status = "Partial"
             allocated_to_inv = True
 
-    log = AuditLog(
-        action="RECORD_PAYMENT",
-        entity_type="Payment",
-        entity_id=pmt.id,
-        details=f"Recorded payment {ref} for {cust.name} (₹{payment_amt:,.2f})",
-        created_at=datetime.utcnow()
+        pmt.unallocated_amount = remaining_to_allocate
+
+        log = AuditLog(
+            action="RECORD_PAYMENT",
+            entity_type="Payment",
+            entity_id=pmt.id,
+            details=f"Recorded payment {ref} for {cust.name} (₹{payment_amt:,.2f})",
+            user_id=current_user.id,
+            created_at=datetime.utcnow()
+        )
+        db.add(log)
+        db.commit()
+
+        return {
+            "status": "success",
+            "payment_id": pmt.id,
+            "payment_reference": ref,
+            "amount": float(payment_amt),
+            "allocated_to_invoice": allocated_to_inv
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Payment processing failed, transaction rolled back: {str(e)}")
+
+@router.post("/payments/{id}/refund")
+def refund_payment(
+    id: str,
+    payload: Optional[Dict[str, Any]] = None,
+    current_user: User = Depends(require_role(["Admin"])),
+    db: Session = Depends(get_db)
+):
+    reason = (payload.get("reason") if payload else None) or "Commercial refund or disputed charge reversal"
+    pmt = db.query(Payment).filter(Payment.id == id).first()
+    if not pmt:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if pmt.status == "Refunded":
+        raise HTTPException(status_code=400, detail="Payment has already been refunded")
+
+    try:
+        # Revert allocations
+        for alloc in pmt.allocations:
+            inv = alloc.invoice
+            if inv:
+                inv.paid_amount -= alloc.allocated_amount
+                inv.balance_due += alloc.allocated_amount
+                if inv.balance_due >= inv.total_amount:
+                    inv.status = "Issued"
+                else:
+                    inv.status = "Partial"
+            db.delete(alloc)
+
+        pmt.status = "Refunded"
+        pmt.unallocated_amount = pmt.amount
+        pmt.allocated_amount = Decimal("0.00")
+
+        log = AuditLog(
+            action="REFUND_PAYMENT",
+            entity_type="Payment",
+            entity_id=pmt.id,
+            details=f"Refunded payment {pmt.payment_reference} (₹{pmt.amount:,.2f}). Reason: {reason}",
+            user_id=current_user.id,
+            created_at=datetime.utcnow()
+        )
+        db.add(log)
+        db.commit()
+
+        return {
+            "status": "success",
+            "payment_reference": pmt.payment_reference,
+            "refunded_amount": float(pmt.amount),
+            "message": f"Payment {pmt.payment_reference} refunded and invoice balances restored."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Refund failed, safely rolled back: {str(e)}")
+
+@router.get("/credits")
+def list_credit_adjustments(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    total = db.query(CreditAdjustment).count()
+    adjs = (
+        db.query(CreditAdjustment)
+        .order_by(CreditAdjustment.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
     )
-    db.add(log)
-    db.commit()
+
+    items = []
+    for adj in adjs:
+        cust = db.query(Customer).filter(Customer.id == adj.customer_id).first()
+        inv = db.query(Invoice).filter(Invoice.id == adj.invoice_id).first() if adj.invoice_id else None
+        items.append({
+            "id": adj.id,
+            "customer_id": adj.customer_id,
+            "customer_name": cust.name if cust else "Unknown",
+            "invoice_id": adj.invoice_id,
+            "invoice_number": inv.invoice_number if inv else "—",
+            "amount": float(adj.amount),
+            "reason": adj.reason,
+            "authorized_by": adj.authorized_by,
+            "status": adj.status,
+            "created_at": adj.created_at.isoformat()
+        })
 
     return {
-        "status": "success",
-        "payment_reference": ref,
-        "amount": float(payment_amt),
-        "allocated_to_invoice": allocated_to_inv
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "items": items
     }
 
 @router.post("/credits")
-def create_credit_adjustment(payload: CreditAdjustmentCreate, db: Session = Depends(get_db)):
+def create_credit_adjustment(
+    payload: CreditAdjustmentCreate,
+    current_user: User = Depends(require_role(["Admin", "Analyst"])),
+    db: Session = Depends(get_db)
+):
     cust = db.query(Customer).filter(Customer.id == payload.customer_id).first()
     if not cust:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -364,7 +494,7 @@ def create_credit_adjustment(payload: CreditAdjustmentCreate, db: Session = Depe
         invoice_id=payload.invoice_id,
         amount=credit_amt,
         reason=payload.reason,
-        authorized_by="Revenue Operations",
+        authorized_by=current_user.full_name or "Revenue Operations",
         status="Applied"
     )
     db.add(adj)
@@ -382,6 +512,7 @@ def create_credit_adjustment(payload: CreditAdjustmentCreate, db: Session = Depe
         entity_type="CreditAdjustment",
         entity_id=adj.id,
         details=f"Credit adjustment of ₹{credit_amt:,.2f} applied to {cust.name}: {payload.reason}",
+        user_id=current_user.id,
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -425,4 +556,101 @@ def get_ageing_analysis(db: Session = Depends(get_db)):
         "days_61_90": float(b_61_90),
         "days_over_90": float(b_over_90),
         "total_outstanding": float(total)
+    }
+
+class BillingCorrectionRequest(BaseModel):
+    customer_id: str
+    amount: float
+    description: str = "Supplementary Invoice for Billing Correction"
+    reason: str
+    exception_id: Optional[str] = None
+    original_invoice_id: Optional[str] = None
+    period_start: Optional[date] = date(2026, 10, 1)
+    period_end: Optional[date] = date(2026, 10, 31)
+
+@router.post("/corrections")
+def create_billing_correction(
+    payload: BillingCorrectionRequest,
+    current_user: User = Depends(require_role(["Admin", "Analyst"])),
+    db: Session = Depends(get_db)
+):
+    cust = db.query(Customer).filter(Customer.id == payload.customer_id).first()
+    if not cust:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    corr_amt = quantize_money(Decimal(str(payload.amount)))
+    if corr_amt <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Correction amount must be positive")
+
+    orig_inv = None
+    if payload.original_invoice_id:
+        orig_inv = db.query(Invoice).filter(Invoice.id == payload.original_invoice_id).first()
+
+    # Generate supplementary invoice
+    inv_count = db.query(Invoice).count()
+    inv_num = f"INV-CORR-{inv_count + 1:04d}"
+    
+    tax_amt = quantize_money(corr_amt * Decimal("0.18"))
+    tot_amt = corr_amt + tax_amt
+
+    new_inv = Invoice(
+        id=str(uuid.uuid4()),
+        invoice_number=inv_num,
+        customer_id=cust.id,
+        billing_period_start=payload.period_start or date(2026, 10, 1),
+        billing_period_end=payload.period_end or date(2026, 10, 31),
+        issue_date=date.today(),
+        due_date=date.today() + timedelta(days=30),
+        subtotal=corr_amt,
+        tax_amount=tax_amt,
+        total_amount=tot_amt,
+        paid_amount=Decimal("0.00"),
+        balance_due=tot_amt,
+        status="Unpaid"
+    )
+    db.add(new_inv)
+    db.flush()
+
+    line = InvoiceLine(
+        id=str(uuid.uuid4()),
+        invoice_id=new_inv.id,
+        description=payload.description,
+        line_type="Adjustment",
+        quantity=Decimal("1.00"),
+        unit_price=corr_amt,
+        line_total=corr_amt
+    )
+    db.add(line)
+
+    # If exception_id is linked, update exception to Resolved
+    resolved_exc = None
+    if payload.exception_id:
+        exc = db.query(ExceptionRecord).filter(ExceptionRecord.id == payload.exception_id).first()
+        if exc:
+            exc.status = "Resolved"
+            exc.resolved_reason = f"Billing correction invoice {inv_num} issued for ₹{corr_amt:,.2f}"
+            exc.resolved_by_id = current_user.id
+            exc.resolved_at = datetime.utcnow()
+            resolved_exc = exc.id
+
+    log = AuditLog(
+        action="BILLING_CORRECTION",
+        entity_type="Invoice",
+        entity_id=new_inv.id,
+        details=f"Created billing correction invoice {inv_num} for ₹{corr_amt:,.2f}. Reason: {payload.reason}",
+        user_id=current_user.id,
+        created_at=datetime.utcnow()
+    )
+    db.add(log)
+    db.commit()
+
+    return {
+        "status": "success",
+        "correction_invoice_id": new_inv.id,
+        "invoice_number": inv_num,
+        "amount": float(corr_amt),
+        "tax": float(tax_amt),
+        "total": float(tot_amt),
+        "resolved_exception_id": resolved_exc,
+        "message": f"Correction invoice {inv_num} created and posted to customer ledger."
     }

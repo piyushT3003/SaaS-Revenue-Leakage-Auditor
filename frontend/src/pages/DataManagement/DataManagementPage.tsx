@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   UploadCloud, FileText, Database, CheckCircle2, AlertTriangle, RefreshCw,
   RotateCcw, Download, ArrowRight, ShieldCheck, Layers, Filter, Check, X,
-  Trash2, HelpCircle
+  Trash2, HelpCircle, Activity
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { Interactive3DCard } from '../../components/3d/Interactive3DCard';
+import { AnimatedNumber } from '../../components/3d/AnimatedNumber';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { LiquidProgress } from '../../components/3d/LiquidProgress';
+import { StaggeredContainer } from '../../components/3d/StaggeredContainer';
+import { MagneticButton } from '../../components/3d/MagneticButton';
+import { UsageIntegrityModal } from '../../components/3d/UsageIntegrityModal';
 
 export const DataManagementPage: React.FC = () => {
   const [sources, setSources] = useState<any[]>([]);
@@ -20,6 +27,7 @@ export const DataManagementPage: React.FC = () => {
   const [importing, setImporting] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  const [showUsageIntegrityModal, setShowUsageIntegrityModal] = useState(false);
 
   // Column mapping state
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({
@@ -120,7 +128,7 @@ export const DataManagementPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <PageTransition className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -134,10 +142,18 @@ export const DataManagementPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowUsageIntegrityModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-300 bg-cyan-950/40 border border-cyan-500/40 hover:bg-cyan-900/50 transition-colors btn-3d shadow-sm"
+          >
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Usage Meter Integrity Monitor</span>
+          </button>
+
           <a
             href={api.getSampleCsvUrl()}
             download="sample_usage_telemetry.csv"
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/50 transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/50 transition-colors btn-3d"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download Sample CSV</span>
@@ -146,9 +162,9 @@ export const DataManagementPage: React.FC = () => {
       </div>
 
       {/* TOP ROW: DATA PIPELINE HEALTH & QUALITY METRICS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <StaggeredContainer className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {sources.map((src) => (
-          <div key={src.id} className="glass-panel p-4 rounded-2xl border border-slate-800 relative">
+          <Interactive3DCard key={src.id} className="glass-panel p-4 rounded-2xl border border-slate-800 relative">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">{src.type}</span>
               <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded-full flex items-center space-x-1">
@@ -159,13 +175,13 @@ export const DataManagementPage: React.FC = () => {
             <div className="mt-2.5">
               <h3 className="text-xs font-bold text-white truncate">{src.name}</h3>
               <div className="text-lg font-bold text-white tracking-tight mt-1">
-                {src.records_count?.toLocaleString()} <span className="text-xs font-normal text-slate-400">records</span>
+                <AnimatedNumber value={src.records_count || 0} /> <span className="text-xs font-normal text-slate-400">records</span>
               </div>
               <div className="text-[10px] text-slate-500 mt-1">Synced: {src.last_sync}</div>
             </div>
-          </div>
+          </Interactive3DCard>
         ))}
-      </div>
+      </StaggeredContainer>
 
       {/* DATA QUALITY ACCORDION BAR */}
       {quality && (
@@ -250,7 +266,7 @@ export const DataManagementPage: React.FC = () => {
               </p>
             </div>
 
-            <button
+            <MagneticButton
               onClick={handleValidateUpload}
               disabled={!selectedFile || validating}
               className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2"
@@ -266,7 +282,19 @@ export const DataManagementPage: React.FC = () => {
                   <span>Run Pre-Import Validation</span>
                 </>
               )}
-            </button>
+            </MagneticButton>
+
+            {validating && (
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-cyan-500/30">
+                <LiquidProgress progress={74} statusText="Validating foreign keys, unique IDs & data types..." />
+              </div>
+            )}
+
+            {importing && (
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30">
+                <LiquidProgress progress={92} statusText="Committing validated rows to PostgreSQL database..." />
+              </div>
+            )}
           </div>
 
           {/* Interactive Column Mapper */}
@@ -328,14 +356,14 @@ export const DataManagementPage: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => setValidationResult(null)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 transition-colors"
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 transition-colors btn-3d"
                 >
                   Discard
                 </button>
                 <button
                   onClick={handleConfirmImport}
                   disabled={importing || validationResult.accepted_count === 0}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center space-x-1.5"
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center space-x-1.5 btn-3d"
                 >
                   {importing ? (
                     <>
@@ -431,7 +459,7 @@ export const DataManagementPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {batches.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-800/30 transition-colors">
+                <tr key={b.id} className="table-row-hover hover:bg-slate-800/30 transition-colors">
                   <td className="py-2.5 px-3 font-mono font-semibold text-white">{b.batch_id}</td>
                   <td className="py-2.5 px-3 text-slate-300 flex items-center space-x-1.5">
                     <FileText className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
@@ -455,17 +483,29 @@ export const DataManagementPage: React.FC = () => {
                   </td>
                   <td className="py-2.5 px-3 text-[11px] text-slate-400">{b.uploaded_at?.slice(0, 16).replace('T', ' ')}</td>
                   <td className="py-2.5 px-3 text-right">
-                    {b.status === 'Imported' ? (
-                      <button
-                        onClick={() => handleRollback(b.batch_id)}
-                        disabled={rollingBackId === b.batch_id}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900 border border-rose-800/50 transition-colors"
-                      >
-                        {rollingBackId === b.batch_id ? 'Rolling back...' : 'Rollback Batch'}
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-slate-600 font-mono">—</span>
-                    )}
+                    <div className="flex items-center justify-end space-x-2">
+                      {b.rejected_rows > 0 && (
+                        <a
+                          href={api.downloadRejectedRecords(b.batch_id)}
+                          download={`rejected_${b.batch_id}.csv`}
+                          className="px-2 py-1 rounded-lg text-[11px] font-semibold text-amber-300 hover:text-white bg-amber-950/40 hover:bg-amber-900/50 border border-amber-800/50 flex items-center space-x-1 btn-3d"
+                        >
+                          <Download className="w-3 h-3 text-amber-400" />
+                          <span>Errors CSV</span>
+                        </a>
+                      )}
+                      {b.status === 'Imported' ? (
+                        <button
+                          onClick={() => handleRollback(b.batch_id)}
+                          disabled={rollingBackId === b.batch_id}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900 border border-rose-800/50 transition-colors btn-3d"
+                        >
+                          {rollingBackId === b.batch_id ? 'Rolling back...' : 'Rollback'}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-600 font-mono">—</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -473,6 +513,12 @@ export const DataManagementPage: React.FC = () => {
           </table>
         </div>
       </div>
-    </div>
+
+      {/* Usage Meter Integrity Monitor 3D Modal */}
+      <UsageIntegrityModal
+        isOpen={showUsageIntegrityModal}
+        onClose={() => setShowUsageIntegrityModal(false)}
+      />
+    </PageTransition>
   );
 };

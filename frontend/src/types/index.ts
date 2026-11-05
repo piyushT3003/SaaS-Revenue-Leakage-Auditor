@@ -67,6 +67,15 @@ export interface ExecutiveOverviewData {
   exceptions_by_type: ExceptionTypeDistribution[];
   customer_profitability: CustomerProfitabilitySummary;
   recent_exceptions: RecentExceptionItem[];
+  audit_status?: {
+    period: string;
+    status: string;
+    freshness: string;
+    latest_run_id?: string;
+    last_run_at?: string;
+    is_stale: boolean;
+    reason?: string;
+  };
 }
 
 export interface ReconciliationRow {

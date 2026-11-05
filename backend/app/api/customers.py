@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import datetime
 from typing import Optional, List
 from backend.app.core.database import get_db
 from backend.app.models.entities import (
@@ -219,7 +221,7 @@ def get_customer_360_profile(id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/export")
-def export_customers(format: str = Query("csv", regex="^(csv|xlsx)$"), db: Session = Depends(get_db)):
+def export_customers(format: str = Query("csv", pattern="^(csv|xlsx)$"), db: Session = Depends(get_db)):
     customers = db.query(Customer).order_by(Customer.name.asc()).all()
     headers = ["Customer Code", "Customer Name", "Segment", "Plan Tier", "Status", "Health Score", "Health Status", "Payment Terms"]
     rows = [

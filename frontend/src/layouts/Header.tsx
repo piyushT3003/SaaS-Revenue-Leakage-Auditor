@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search, Calendar, ChevronDown, Bell, HelpCircle,
   Download, LogOut, User as UserIcon, Shield
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   dateRangeLabel,
   unreadCount = 3
 }) => {
+  const navigate = useNavigate();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   return (
@@ -102,14 +104,20 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="py-1 space-y-0.5 text-xs">
                 <button
-                  onClick={() => setProfileDropdownOpen(false)}
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    navigate('/settings');
+                  }}
                   className="w-full text-left px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2"
                 >
                   <UserIcon className="w-3.5 h-3.5 text-slate-400" />
                   <span>Account Profile</span>
                 </button>
                 <button
-                  onClick={() => setProfileDropdownOpen(false)}
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    navigate('/settings');
+                  }}
                   className="w-full text-left px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2"
                 >
                   <Shield className="w-3.5 h-3.5 text-slate-400" />

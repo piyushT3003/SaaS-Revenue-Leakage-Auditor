@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -28,8 +29,6 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onRefresh,
 }) => {
   const navigate = useNavigate();
-
-  if (!isOpen) return null;
 
   const handleMarkAllRead = async () => {
     try {
@@ -60,10 +59,25 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm">
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-[#0a0f1d] border-l border-slate-800 shadow-2xl flex flex-col">
-          {/* Drawer Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <motion.div
+              initial={{ x: '100%', opacity: 0.8 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-screen max-w-md bg-[#0a0f1d] border-l border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col relative z-10"
+            >
+              {/* Drawer Header */}
           <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-white">Application Notifications</h2>
@@ -139,8 +153,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               })
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
+      )}
+    </AnimatePresence>
   );
 };

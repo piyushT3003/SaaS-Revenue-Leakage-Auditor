@@ -2,14 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle, Clock, ShieldAlert, Search, Filter,
-  Download, Eye, UserPlus, MessageSquare, Check, X, ArrowUpDown, ChevronRight, FileText
+  Download, Eye, UserPlus, MessageSquare, Check, X, ArrowUpDown, ChevronRight, FileText,
+  GitBranch, Network, ShieldCheck
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExceptionDetail } from '../../types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Interactive3DCard } from '../../components/3d/Interactive3DCard';
+import { AnimatedNumber } from '../../components/3d/AnimatedNumber';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { StaggeredContainer } from '../../components/3d/StaggeredContainer';
+import { MagneticButton } from '../../components/3d/MagneticButton';
+import { RevenueEvidenceGraphModal } from '../../components/3d/RevenueEvidenceGraphModal';
+import { PriorityMatrixModal } from '../../components/3d/PriorityMatrixModal';
+import { RootCauseClusterModal } from '../../components/3d/RootCauseClusterModal';
+import { AuditEvidencePackModal } from '../../components/3d/AuditEvidencePackModal';
 
 export const ExceptionsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialId = searchParams.get('id');
+  const initialIssueType = searchParams.get('issue_type') || 'All';
+  const initialSeverity = searchParams.get('severity') || 'All';
+  const initialStatus = searchParams.get('status') || 'All';
 
   const [exceptions, setExceptions] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({
@@ -21,9 +35,20 @@ export const ExceptionsPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [issueTypeFilter, setIssueTypeFilter] = useState('All');
-  const [severityFilter, setSeverityFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [issueTypeFilter, setIssueTypeFilter] = useState(initialIssueType);
+  const [severityFilter, setSeverityFilter] = useState(initialSeverity);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+
+  useEffect(() => {
+    const qType = searchParams.get('issue_type');
+    if (qType) setIssueTypeFilter(qType);
+    const qSev = searchParams.get('severity');
+    if (qSev) setSeverityFilter(qSev);
+    const qStat = searchParams.get('status');
+    if (qStat) setStatusFilter(qStat);
+    const qId = searchParams.get('id');
+    if (qId) openInvestigation(qId);
+  }, [searchParams]);
 
   // Investigation drawer state
   const [selectedException, setSelectedException] = useState<ExceptionDetail | null>(null);
@@ -32,6 +57,13 @@ export const ExceptionsPage: React.FC = () => {
   const [resolutionReason, setResolutionReason] = useState('');
   const [isResolving, setIsResolving] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Advanced 3D Capability Modals
+  const [showEvidenceGraph, setShowEvidenceGraph] = useState(false);
+  const [showPriorityMatrix, setShowPriorityMatrix] = useState(false);
+  const [showRootCause, setShowRootCause] = useState(false);
+  const [showEvidencePack, setShowEvidencePack] = useState(false);
+  const [graphExceptionId, setGraphExceptionId] = useState<string | undefined>(undefined);
 
   const fetchExceptions = async () => {
     setLoading(true);
@@ -114,7 +146,7 @@ export const ExceptionsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <PageTransition className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -123,58 +155,119 @@ export const ExceptionsPage: React.FC = () => {
             <span className="text-rose-500">Management</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Investigate & Resolve Financial Discrepancies Across 8 Detection Categories
+            Investigate &amp; Resolve Financial Discrepancies Across 8 Detection Categories
           </p>
         </div>
 
-        <button
-          onClick={() => window.open(api.exportExceptions('csv'), '_blank')}
-          className="btn-3d flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700 text-xs font-medium"
-        >
-          <Download className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Export Exceptions</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowPriorityMatrix(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-rose-300 border border-rose-500/30 text-xs font-semibold shadow-sm transition"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            <span>Priority Matrix</span>
+          </button>
+
+          <button
+            onClick={() => setShowRootCause(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-amber-300 border border-amber-500/30 text-xs font-semibold shadow-sm transition"
+          >
+            <Network className="w-3.5 h-3.5 text-amber-400" />
+            <span>Root Cause & Blast Radius</span>
+          </button>
+
+          <button
+            onClick={() => setShowEvidencePack(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-teal-300 border border-teal-500/30 text-xs font-semibold shadow-sm transition"
+          >
+            <FileText className="w-3.5 h-3.5 text-teal-400" />
+            <span>Audit Evidence Pack</span>
+          </button>
+
+          <MagneticButton
+            onClick={() => window.open(api.exportExceptions('csv'), '_blank')}
+            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700 text-xs font-medium"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Export</span>
+          </MagneticButton>
+        </div>
       </div>
 
-      {/* TOP KPI CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* TOP KPI CARDS (Interactive 3D Filtering) */}
+      <StaggeredContainer className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* Total Exceptions */}
-        <div className="glass-panel p-4 rounded-2xl border border-cyan-500/20">
+        <Interactive3DCard
+          glowColor="cyan"
+          onClick={() => setStatusFilter('All')}
+          className={`glass-panel p-4 rounded-2xl border cursor-pointer transition-all ${
+            statusFilter === 'All' ? 'border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.35)]' : 'border-cyan-500/20 hover:border-cyan-500/40'
+          }`}
+        >
           <span className="text-[11px] font-medium text-slate-400 block">Total Exceptions</span>
-          <div className="text-xl font-bold text-white tracking-tight mt-1">{metrics.total_exceptions}</div>
+          <div className="text-xl font-bold text-white tracking-tight mt-1">
+            <AnimatedNumber value={metrics.total_exceptions} />
+          </div>
           <span className="text-[10px] text-slate-500 mt-0.5 block">Identified in active period</span>
-        </div>
+        </Interactive3DCard>
 
         {/* Open */}
-        <div className="glass-panel glass-panel-red p-4 rounded-2xl border border-rose-500/30">
+        <Interactive3DCard
+          glowColor="rose"
+          onClick={() => setStatusFilter('Open')}
+          className={`glass-panel glass-panel-red p-4 rounded-2xl border cursor-pointer transition-all ${
+            statusFilter === 'Open' ? 'border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.45)]' : 'border-rose-500/30 hover:border-rose-500/50'
+          }`}
+        >
           <span className="text-[11px] font-medium text-slate-400 block">Open Exceptions</span>
-          <div className="text-xl font-bold text-rose-400 tracking-tight mt-1">{metrics.open_exceptions}</div>
+          <div className="text-xl font-bold text-rose-400 tracking-tight mt-1">
+            <AnimatedNumber value={metrics.open_exceptions} />
+          </div>
           <span className="text-[10px] text-rose-400/80 mt-0.5 block">Awaiting investigation</span>
-        </div>
+        </Interactive3DCard>
 
         {/* In Progress */}
-        <div className="glass-panel p-4 rounded-2xl border border-amber-500/20">
+        <Interactive3DCard
+          glowColor="amber"
+          onClick={() => setStatusFilter('In Progress')}
+          className={`glass-panel p-4 rounded-2xl border cursor-pointer transition-all ${
+            statusFilter === 'In Progress' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.35)]' : 'border-amber-500/20 hover:border-amber-500/40'
+          }`}
+        >
           <span className="text-[11px] font-medium text-slate-400 block">In Progress</span>
-          <div className="text-xl font-bold text-amber-400 tracking-tight mt-1">{metrics.in_progress}</div>
+          <div className="text-xl font-bold text-amber-400 tracking-tight mt-1">
+            <AnimatedNumber value={metrics.in_progress} />
+          </div>
           <span className="text-[10px] text-amber-400/80 mt-0.5 block">Active audit investigation</span>
-        </div>
+        </Interactive3DCard>
 
         {/* Resolved */}
-        <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20">
+        <Interactive3DCard
+          glowColor="emerald"
+          onClick={() => setStatusFilter('Resolved')}
+          className={`glass-panel p-4 rounded-2xl border cursor-pointer transition-all ${
+            statusFilter === 'Resolved' ? 'border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)]' : 'border-emerald-500/20 hover:border-emerald-500/40'
+          }`}
+        >
           <span className="text-[11px] font-medium text-slate-400 block">Resolved</span>
-          <div className="text-xl font-bold text-emerald-400 tracking-tight mt-1">{metrics.resolved}</div>
+          <div className="text-xl font-bold text-emerald-400 tracking-tight mt-1">
+            <AnimatedNumber value={metrics.resolved} />
+          </div>
           <span className="text-[10px] text-emerald-400/80 mt-0.5 block">Audit history preserved</span>
-        </div>
+        </Interactive3DCard>
 
         {/* Financial Exposure */}
-        <div className="glass-panel glass-panel-red p-4 rounded-2xl border border-rose-500/30 shadow-[0_0_15px_rgba(225,29,72,0.15)]">
+        <Interactive3DCard
+          glowColor="rose"
+          className="glass-panel glass-panel-red p-4 rounded-2xl border border-rose-500/30 shadow-[0_0_20px_rgba(225,29,72,0.18)]"
+        >
           <span className="text-[11px] font-medium text-slate-400 block">Financial Exposure</span>
           <div className="text-xl font-bold text-white tracking-tight mt-1">
-            ₹{Math.round(metrics.financial_exposure).toLocaleString('en-IN')}
+            <AnimatedNumber value={metrics.financial_exposure} formatAsCurrency prefix="₹" />
           </div>
           <span className="text-[10px] text-rose-400 mt-0.5 block">Non-duplicated leakage</span>
-        </div>
-      </div>
+        </Interactive3DCard>
+      </StaggeredContainer>
 
       {/* FILTER & SEARCH BAR */}
       <div className="glass-panel p-4 rounded-2xl border border-cyan-500/20 flex flex-wrap items-center justify-between gap-3">
@@ -190,7 +283,7 @@ export const ExceptionsPage: React.FC = () => {
           />
         </div>
 
-        {/* Dropdowns */}
+        {/* Dropdowns & Reset */}
         <div className="flex items-center space-x-2">
           {/* Issue Type */}
           <select
@@ -233,6 +326,20 @@ export const ExceptionsPage: React.FC = () => {
             <option value="In Progress">In Progress</option>
             <option value="Resolved">Resolved</option>
           </select>
+
+          {(search || issueTypeFilter !== 'All' || severityFilter !== 'All' || statusFilter !== 'All') && (
+            <button
+              onClick={() => {
+                setSearch('');
+                setIssueTypeFilter('All');
+                setSeverityFilter('All');
+                setStatusFilter('All');
+              }}
+              className="btn-3d px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -268,7 +375,7 @@ export const ExceptionsPage: React.FC = () => {
                 </tr>
               ) : (
                 exceptions.map((exc) => (
-                  <tr key={exc.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={exc.id} className="table-row-hover hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 px-3 font-mono font-semibold text-cyan-400">
                       {exc.exception_code}
                     </td>
@@ -290,8 +397,8 @@ export const ExceptionsPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-2 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        exc.severity === 'Critical' ? 'bg-rose-950/80 text-rose-400' :
-                        exc.severity === 'High' ? 'bg-amber-950/80 text-amber-400' :
+                        exc.severity === 'Critical' ? 'bg-rose-950/90 text-rose-300 hologram-glow-rose border border-rose-500/60' :
+                        exc.severity === 'High' ? 'bg-amber-950/80 text-amber-400 border border-amber-500/30' :
                         'bg-slate-800 text-slate-400'
                       }`}>
                         {exc.severity}
@@ -330,11 +437,25 @@ export const ExceptionsPage: React.FC = () => {
       </div>
 
       {/* INVESTIGATION DETAIL DRAWER */}
-      {selectedException && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/75 backdrop-blur-sm">
-          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-xl bg-[#0a0f1d] border-l border-slate-800 shadow-2xl flex flex-col">
-              {/* Header */}
+      <AnimatePresence>
+        {selectedException && (
+          <div className="fixed inset-0 z-50 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedException(null)}
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            />
+            <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+              <motion.div
+                initial={{ x: '100%', opacity: 0.8 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: '100%', opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                className="w-screen max-w-xl bg-[#0a0f1d] border-l border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col relative z-10"
+              >
+                {/* Header */}
               <div className="p-5 border-b border-slate-800 flex items-start justify-between">
                 <div>
                   <div className="flex items-center space-x-2">
@@ -383,6 +504,28 @@ export const ExceptionsPage: React.FC = () => {
                       <option value="Resolved">Resolved</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Evidence & Lineage Quick Actions */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setGraphExceptionId(selectedException.id);
+                      setShowEvidenceGraph(true);
+                    }}
+                    className="p-2.5 rounded-xl bg-blue-950/40 hover:bg-blue-900/50 border border-blue-500/40 text-blue-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition"
+                  >
+                    <GitBranch className="w-3.5 h-3.5 text-blue-400" />
+                    <span>View Revenue Evidence</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowEvidencePack(true)}
+                    className="p-2.5 rounded-xl bg-teal-950/40 hover:bg-teal-900/50 border border-teal-500/40 text-teal-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Audit Evidence Pack</span>
+                  </button>
                 </div>
 
                 {/* Calculation & Explanation */}
@@ -436,6 +579,37 @@ export const ExceptionsPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Correction Action for Underbilling */}
+                {selectedException.issue_type === 'Underbilling' && selectedException.status !== 'Resolved' && (
+                  <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-cyan-300 uppercase font-bold block">Financial Correction</span>
+                      <span className="text-xs text-slate-300">Issue supplementary invoice to recover ₹{selectedException.financial_impact.toLocaleString('en-IN')}</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.createBillingCorrection({
+                            customer_id: selectedException.customer_id,
+                            amount: selectedException.financial_impact,
+                            description: `Correction for ${selectedException.exception_code}: ${selectedException.description}`,
+                            reason: `Audited underbilling exception ${selectedException.exception_code}`,
+                            exception_id: selectedException.id
+                          });
+                          setActionSuccess(`Correction invoice created and exception ${selectedException.exception_code} marked as Resolved.`);
+                          openInvestigation(selectedException.id);
+                          fetchExceptions();
+                        } catch (err: any) {
+                          alert(err.message || 'Correction failed');
+                        }
+                      }}
+                      className="btn-3d px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs whitespace-nowrap shadow-sm"
+                    >
+                      Issue Invoice &amp; Resolve
+                    </button>
+                  </div>
+                )}
+
                 {/* Resolve Action Section */}
                 {selectedException.status !== 'Resolved' && (
                   <div className="pt-3 border-t border-slate-800">
@@ -477,10 +651,36 @@ export const ExceptionsPage: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
-      )}
-    </div>
+        )}
+      </AnimatePresence>
+
+      {/* Advanced 3D Capability Modals */}
+      <RevenueEvidenceGraphModal
+        isOpen={showEvidenceGraph}
+        onClose={() => setShowEvidenceGraph(false)}
+        exceptionId={graphExceptionId}
+      />
+
+      <PriorityMatrixModal
+        isOpen={showPriorityMatrix}
+        onClose={() => setShowPriorityMatrix(false)}
+        onAssignComplete={fetchExceptions}
+      />
+
+      <RootCauseClusterModal
+        isOpen={showRootCause}
+        onClose={() => setShowRootCause(false)}
+      />
+
+      <AuditEvidencePackModal
+        isOpen={showEvidencePack}
+        onClose={() => setShowEvidencePack(false)}
+        packType="Exception"
+        targetId={selectedException?.id}
+      />
+    </PageTransition>
   );
 };

@@ -137,6 +137,9 @@ class UsageEvent(Base):
     processed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    customer = relationship("Customer")
+    product = relationship("Product")
+
 
 class Invoice(Base):
     __tablename__ = "invoices"
@@ -259,6 +262,7 @@ class ExceptionRecord(Base):
     description = Column(String(255), nullable=False)
     calculation_explanation = Column(Text, nullable=False)
     source_records_json = Column(Text, nullable=True)  # JSON with source IDs
+    fingerprint = Column(String(128), nullable=True, index=True)  # Deduplication fingerprint
     resolved_reason = Column(Text, nullable=True)
     resolved_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
     resolved_at = Column(DateTime, nullable=True)
@@ -303,12 +307,14 @@ class UploadBatch(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     batch_id = Column(String(64), unique=True, nullable=False, index=True)
     filename = Column(String(255), nullable=False)
-    data_type = Column(String(64), nullable=False)  # Usage, Invoices, Contracts, Payments, DirectCosts
+    data_type = Column(String(64), nullable=False)  # Usage, Invoices, Contracts, Payments, DirectCosts, Customers
     total_rows = Column(Integer, default=0, nullable=False)
     accepted_rows = Column(Integer, default=0, nullable=False)
     rejected_rows = Column(Integer, default=0, nullable=False)
     status = Column(String(32), default="Pending", nullable=False)  # Previewed, Imported, RolledBack, Failed
+    accepted_records_json = Column(Text, nullable=True)
     rejected_records_json = Column(Text, nullable=True)
+    inserted_ids_json = Column(Text, nullable=True)  # List of inserted IDs for atomic rollback
     uploaded_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -366,3 +372,141 @@ class AppSettings(Base):
     key = Column(String(64), unique=True, nullable=False, index=True)
     value_json = Column(Text, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+# ==============================================================================
+# ADVANCED REVENUE ASSURANCE PLATFORM CAPABILITIES
+# ==============================================================================
+
+class HistoricalReplayRun(Base):
+    __tablename__ = "historical_replay_runs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    replay_code = Column(String(64), unique=True, nullable=False, index=True)
+    period = Column(String(10), nullable=False, index=True)
+    customer_ids_json = Column(Text, nullable=True)  # null = all customers
+    status = Column(String(32), default="Completed", nullable=False)  # Running, Completed, Incomplete, Failed
+    expected_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    original_invoiced_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    historical_variance = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    discrepancy_count = Column(Integer, default=0, nullable=False)
+    records_reconstructed = Column(Integer, default=0, nullable=False)
+    is_incomplete = Column(Boolean, default=False, nullable=False)
+    execution_notes = Column(Text, nullable=True)
+    comparison_summary_json = Column(Text, nullable=True)
+    created_by_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class WhatIfScenario(Base):
+    __tablename__ = "what_if_scenarios"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(128), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    baseline_period = Column(String(10), default="2026-10", nullable=False)
+    target_type = Column(String(32), default="All", nullable=False)  # All, Segment, Customer, Product
+    target_id = Column(String(64), nullable=True)
+    parameters_json = Column(Text, nullable=False)
+    results_json = Column(Text, nullable=False)
+    created_by_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class ExceptionPriorityScore(Base):
+    __tablename__ = "exception_priority_scores"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    exception_id = Column(String(36), ForeignKey("exceptions.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    composite_score = Column(Numeric(5, 2), nullable=False, index=True)  # 0.0 - 100.0
+    assigned_priority = Column(String(32), nullable=False, index=True)  # Critical, High, Medium, Low
+    exposure_score = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
+    recurrence_score = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
+    customer_tier_score = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
+    evidence_score = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
+    age_score = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
+    factors_json = Column(Text, nullable=False)
+    assigned_to_id = Column(String(36), nullable=True)
+    manual_override = Column(Boolean, default=False, nullable=False)
+    override_reason = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    exception = relationship("ExceptionRecord", backref="priority_record")
+
+
+class UsageIntegrityReport(Base):
+    __tablename__ = "usage_integrity_reports"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    period = Column(String(10), nullable=False, index=True)
+    source_name = Column(String(128), default="Primary Ingestion API Stream", nullable=False)
+    total_events_checked = Column(Integer, default=0, nullable=False)
+    valid_events_count = Column(Integer, default=0, nullable=False)
+    duplicate_events_count = Column(Integer, default=0, nullable=False)
+    late_arriving_count = Column(Integer, default=0, nullable=False)
+    unmatched_period_count = Column(Integer, default=0, nullable=False)
+    missing_manifest_batches = Column(Integer, default=0, nullable=False)
+    integrity_score = Column(Numeric(5, 2), default=Decimal("100.00"), nullable=False)
+    status = Column(String(32), default="Clean", nullable=False)  # Clean, Warning, ActionRequired
+    anomalies_json = Column(Text, nullable=True)
+    scanned_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class BillingRuleProposal(Base):
+    __tablename__ = "billing_rule_proposals"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    proposal_code = Column(String(64), unique=True, nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    test_period = Column(String(10), default="2026-10", nullable=False)
+    baseline_rule_json = Column(Text, nullable=False)
+    proposed_rule_json = Column(Text, nullable=False)
+    test_customers_count = Column(Integer, default=0, nullable=False)
+    tests_passed = Column(Integer, default=0, nullable=False)
+    tests_failed = Column(Integer, default=0, nullable=False)
+    tests_warning = Column(Integer, default=0, nullable=False)
+    net_financial_difference = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    detailed_results_json = Column(Text, nullable=True)
+    status = Column(String(32), default="Draft", nullable=False, index=True)  # Draft, Tested, PendingApproval, Approved, Rejected
+    submitted_by_id = Column(String(36), nullable=True)
+    reviewed_by_id = Column(String(36), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class RootCauseCluster(Base):
+    __tablename__ = "root_cause_clusters"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    cluster_code = Column(String(64), unique=True, nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    cluster_type = Column(String(64), nullable=False)  # ContractVersion, PricingRule, MeterConfig, TimingProration
+    grouping_factor = Column(String(128), nullable=False)
+    affected_exception_ids_json = Column(Text, nullable=False)
+    affected_customer_count = Column(Integer, default=0, nullable=False)
+    affected_invoices_count = Column(Integer, default=0, nullable=False)
+    aggregate_exposure = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    status = Column(String(32), default="Potential", nullable=False, index=True)  # Potential, Confirmed, Inconclusive
+    investigation_notes = Column(Text, nullable=True)
+    confirmed_cause = Column(Text, nullable=True)
+    assigned_to_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AuditEvidencePackRecord(Base):
+    __tablename__ = "audit_evidence_packs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    pack_code = Column(String(64), unique=True, nullable=False, index=True)
+    pack_type = Column(String(32), nullable=False, index=True)  # Exception, Customer, PeriodAudit
+    target_id = Column(String(64), nullable=False, index=True)
+    target_name = Column(String(255), nullable=False)
+    period = Column(String(10), nullable=False)
+    manifest_checksum = Column(String(64), nullable=False)
+    sections_json = Column(Text, nullable=False)
+    financial_summary_json = Column(Text, nullable=False)
+    source_reference_count = Column(Integer, default=0, nullable=False)
+    generated_by_id = Column(String(36), nullable=True)
+    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

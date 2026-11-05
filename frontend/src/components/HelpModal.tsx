@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, X, CheckCircle2, BookOpen } from 'lucide-react';
 
 interface HelpModalProps {
@@ -8,8 +9,6 @@ interface HelpModalProps {
 }
 
 export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, pageName }) => {
-  if (!isOpen) return null;
-
   const helpContent: Record<string, { title: string; purpose: string; rules: string[]; tips: string }> = {
     overview: {
       title: 'Executive Overview Guide',
@@ -106,51 +105,68 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, pageName 
   const current = helpContent[pageName.toLowerCase()] || helpContent.overview;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-      <div className="relative w-full max-w-lg bg-[#0d1629] border border-cyan-500/30 rounded-2xl p-6 shadow-2xl shadow-[0_0_30px_rgba(6,182,212,0.15)]">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-base font-bold text-white">{current.title}</h3>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="py-4 space-y-4">
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Purpose</h4>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">{current.purpose}</p>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Operating Rules</h4>
-            <ul className="mt-2 space-y-2">
-              {current.rules.map((rule, idx) => (
-                <li key={idx} className="flex items-start text-xs text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mr-2 mt-0.5" />
-                  <span>{rule}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20">
-            <span className="text-[11px] font-semibold text-cyan-400 block mb-0.5">Pro Tip</span>
-            <p className="text-xs text-slate-300 leading-relaxed">{current.tips}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-4 border-t border-slate-800">
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700"
+            className="absolute inset-0 bg-black/75 backdrop-blur-md"
+          />
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.94, opacity: 0, y: 12 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="relative w-full max-w-lg bg-[#0d1629] border border-cyan-500/30 rounded-2xl p-6 shadow-2xl shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10"
           >
-            Got it
-          </button>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center space-x-2">
+                <BookOpen className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-bold text-white">{current.title}</h3>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Purpose</h4>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">{current.purpose}</p>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Operating Rules</h4>
+                <ul className="mt-2 space-y-2">
+                  {current.rules.map((rule, idx) => (
+                    <li key={idx} className="flex items-start text-xs text-slate-300">
+                      <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mr-2 mt-0.5" />
+                      <span>{rule}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20">
+                <span className="text-[11px] font-semibold text-cyan-400 block mb-0.5">Pro Tip</span>
+                <p className="text-xs text-slate-300 leading-relaxed">{current.tips}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-800">
+              <button
+                onClick={onClose}
+                className="px-5 py-2 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700"
+              >
+                Got it
+              </button>
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };

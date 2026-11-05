@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 from typing import Optional, List
 import json
@@ -12,6 +13,7 @@ from backend.app.schemas.api_schemas import (
     ExceptionStatusRequest, ExceptionNoteCreate
 )
 from backend.app.exports.exporter import ExportService
+from backend.app.security.auth import require_role
 
 router = APIRouter()
 
@@ -51,13 +53,13 @@ def list_exceptions(
         .all()
     )
 
-    # Calculate overall metrics
-    all_excs = db.query(ExceptionRecord).all()
-    total_exceptions = len(all_excs)
-    open_count = sum(1 for e in all_excs if e.status == "Open")
-    in_progress_count = sum(1 for e in all_excs if e.status == "In Progress")
-    resolved_count = sum(1 for e in all_excs if e.status == "Resolved")
-    financial_exposure = sum(float(e.financial_impact) for e in all_excs if e.status != "Resolved")
+    # Calculate overall metrics using efficient database aggregations
+    total_exceptions = db.query(func.count(ExceptionRecord.id)).scalar() or 0
+    open_count = db.query(func.count(ExceptionRecord.id)).filter(ExceptionRecord.status == "Open").scalar() or 0
+    in_progress_count = db.query(func.count(ExceptionRecord.id)).filter(ExceptionRecord.status == "In Progress").scalar() or 0
+    resolved_count = db.query(func.count(ExceptionRecord.id)).filter(ExceptionRecord.status == "Resolved").scalar() or 0
+    exposure_res = db.query(func.coalesce(func.sum(ExceptionRecord.financial_impact), 0)).filter(ExceptionRecord.status != "Resolved").scalar()
+    financial_exposure = float(exposure_res or 0.0)
 
     return {
         "metrics": {
@@ -140,7 +142,12 @@ def get_exception_detail(id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/{id}/assign")
-def assign_exception(id: str, payload: ExceptionAssignRequest, db: Session = Depends(get_db)):
+def assign_exception(
+    id: str,
+    payload: ExceptionAssignRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin", "Analyst"]))
+):
     exc = db.query(ExceptionRecord).filter(ExceptionRecord.id == id).first()
     if not exc:
         raise HTTPException(status_code=404, detail="Exception not found")
@@ -154,11 +161,11 @@ def assign_exception(id: str, payload: ExceptionAssignRequest, db: Session = Dep
         exc.status = "In Progress"
 
     log = AuditLog(
-        user_id=user.id,
+        user_id=current_user.id,
         action="ASSIGN_EXCEPTION",
         entity_type="Exception",
         entity_id=exc.id,
-        details=f"Assigned exception {exc.exception_code} to {user.full_name}",
+        details=f"Assigned exception {exc.exception_code} to {user.full_name} by {current_user.full_name}",
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -167,7 +174,12 @@ def assign_exception(id: str, payload: ExceptionAssignRequest, db: Session = Dep
     return {"status": "success", "message": f"Assigned to {user.full_name}", "exception_status": exc.status}
 
 @router.post("/{id}/status")
-def update_exception_status(id: str, payload: ExceptionStatusRequest, db: Session = Depends(get_db)):
+def update_exception_status(
+    id: str,
+    payload: ExceptionStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin", "Analyst"]))
+):
     exc = db.query(ExceptionRecord).filter(ExceptionRecord.id == id).first()
     if not exc:
         raise HTTPException(status_code=404, detail="Exception not found")
@@ -179,11 +191,11 @@ def update_exception_status(id: str, payload: ExceptionStatusRequest, db: Sessio
     exc.status = payload.status
 
     log = AuditLog(
-        user_id=exc.assigned_to_id,
+        user_id=current_user.id,
         action="CHANGE_STATUS",
         entity_type="Exception",
         entity_id=exc.id,
-        details=f"Status changed from {old_status} to {payload.status}",
+        details=f"Status changed from {old_status} to {payload.status} by {current_user.full_name}",
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -192,28 +204,30 @@ def update_exception_status(id: str, payload: ExceptionStatusRequest, db: Sessio
     return {"status": "success", "old_status": old_status, "new_status": exc.status}
 
 @router.post("/{id}/notes")
-def add_investigation_note(id: str, payload: ExceptionNoteCreate, db: Session = Depends(get_db)):
+def add_investigation_note(
+    id: str,
+    payload: ExceptionNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin", "Analyst"]))
+):
     exc = db.query(ExceptionRecord).filter(ExceptionRecord.id == id).first()
     if not exc:
         raise HTTPException(status_code=404, detail="Exception not found")
 
-    user = db.query(User).filter(User.role == "Admin").first()
-    user_id = user.id if user else "SYSTEM"
-
     note = InvestigationNote(
         exception_id=exc.id,
-        user_id=user_id,
+        user_id=current_user.id,
         note_text=payload.note_text,
         created_at=datetime.utcnow()
     )
     db.add(note)
 
     log = AuditLog(
-        user_id=user_id,
+        user_id=current_user.id,
         action="ADD_NOTE",
         entity_type="Exception",
         entity_id=exc.id,
-        details=f"Added investigation note to {exc.exception_code}",
+        details=f"Added investigation note to {exc.exception_code} by {current_user.full_name}",
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -222,25 +236,28 @@ def add_investigation_note(id: str, payload: ExceptionNoteCreate, db: Session = 
     return {"status": "success", "note_id": note.id, "created_at": note.created_at.isoformat()}
 
 @router.post("/{id}/resolve")
-def resolve_exception(id: str, payload: ExceptionResolveRequest, db: Session = Depends(get_db)):
+def resolve_exception(
+    id: str,
+    payload: ExceptionResolveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin", "Analyst"]))
+):
     exc = db.query(ExceptionRecord).filter(ExceptionRecord.id == id).first()
     if not exc:
         raise HTTPException(status_code=404, detail="Exception not found")
 
-    user = db.query(User).filter(User.role == "Admin").first()
-
     exc.status = "Resolved"
     exc.resolved_reason = payload.resolution_reason
     exc.resolved_at = datetime.utcnow()
-    exc.resolved_by_id = user.id if user else None
+    exc.resolved_by_id = current_user.id
 
     # Never delete the record; preserve audit history
     log = AuditLog(
-        user_id=user.id if user else None,
+        user_id=current_user.id,
         action="RESOLVE_EXCEPTION",
         entity_type="Exception",
         entity_id=exc.id,
-        details=f"Resolved exception {exc.exception_code}: {payload.resolution_reason}",
+        details=f"Resolved exception {exc.exception_code}: {payload.resolution_reason} by {current_user.full_name}",
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -249,7 +266,7 @@ def resolve_exception(id: str, payload: ExceptionResolveRequest, db: Session = D
     return {"status": "success", "message": f"Exception {exc.exception_code} resolved", "resolved_at": exc.resolved_at.isoformat()}
 
 @router.get("/export")
-def export_exceptions(format: str = Query("csv", regex="^(csv|xlsx)$"), db: Session = Depends(get_db)):
+def export_exceptions(format: str = Query("csv", pattern="^(csv|xlsx)$"), db: Session = Depends(get_db)):
     excs = db.query(ExceptionRecord).order_by(ExceptionRecord.financial_impact.desc()).all()
     headers = ["Exception Code", "Customer", "Issue Type", "Severity", "Financial Impact (₹)", "Status", "Description", "Calculation Details"]
     rows = [

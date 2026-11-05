@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8085/api/v1';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('token');
@@ -59,8 +59,24 @@ export const api = {
   triggerReconciliation: (period = '2026-10') =>
     request<any>(`/reconciliation/run?period=${period}`, { method: 'POST' }),
 
+  getReconciliationJobs: (limit = 20) =>
+    request<any[]>(`/reconciliation/jobs?limit=${limit}`),
+
+  getReconciliationJobStatus: (jobId: string) =>
+    request<any>(`/reconciliation/jobs/${jobId}`),
+
   exportReconciliation: (period = '2026-10', format: 'csv' | 'xlsx' = 'csv') =>
     `${API_BASE}/reconciliation/export?period=${period}&format=${format}`,
+
+  getReconciliationReadiness: (period = '2026-10', customerId?: string, productId?: string) => {
+    let url = `/reconciliation/readiness?period=${period}`;
+    if (customerId) url += `&customer_id=${customerId}`;
+    if (productId) url += `&product_id=${productId}`;
+    return request<any>(url);
+  },
+
+  getReconciliationStatus: (period = '2026-10') =>
+    request<any>(`/reconciliation/status?period=${period}`),
 
   // Exceptions
   getExceptions: (params: { search?: string; issue_type?: string; severity?: string; status?: string; page?: number; limit?: number }) => {
@@ -152,6 +168,12 @@ export const api = {
       body: JSON.stringify(data)
     }),
 
+  refundPayment: (paymentId: string, reason?: string) =>
+    request<any>(`/billing/payments/${paymentId}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || 'Customer requested refund' })
+    }),
+
   createCreditAdjustment: (data: { customer_id: string; invoice_id?: string; amount: number; reason: string }) =>
     request<any>('/billing/credits', {
       method: 'POST',
@@ -159,6 +181,24 @@ export const api = {
     }),
 
   getAgeingAnalysis: () => request<any>('/billing/ageing'),
+
+  getCredits: (page = 1, limit = 50) =>
+    request<any>(`/billing/credits?page=${page}&limit=${limit}`),
+
+  createBillingCorrection: (data: {
+    customer_id: string;
+    amount: number;
+    description?: string;
+    reason: string;
+    exception_id?: string;
+    original_invoice_id?: string;
+    period_start?: string;
+    period_end?: string;
+  }) =>
+    request<any>('/billing/corrections', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
 
   // Unit Economics
   getUnitEconomics: (period = '2026-10', segment?: string) => {
@@ -211,16 +251,27 @@ export const api = {
   confirmImport: (batchId: string) => {
     const formData = new FormData();
     formData.append('batch_id', batchId);
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     return fetch(`${API_BASE}/data/confirm-import`, {
       method: 'POST',
+      headers,
       body: formData
-    }).then(r => r.json());
+    }).then(r => {
+      if (!r.ok) throw new Error('Confirm import failed');
+      return r.json();
+    });
   },
 
   rollbackBatch: (batchId: string) =>
     request<any>(`/data/rollback/${batchId}`, { method: 'POST' }),
 
   getBatches: () => request<any>('/data/batches'),
+
+  downloadRejectedRecords: (batchId: string) =>
+    `${API_BASE}/data/batches/${batchId}/rejected`,
 
   getSampleCsvUrl: () => `${API_BASE}/data/download-sample`,
 
@@ -241,6 +292,20 @@ export const api = {
       body: JSON.stringify(userData)
     }),
 
+  createBackup: (backupName?: string) =>
+    request<any>('/settings/backup', {
+      method: 'POST',
+      body: JSON.stringify({ backup_name: backupName })
+    }),
+
+  restoreBackup: (backupName: string) =>
+    request<any>('/settings/restore', {
+      method: 'POST',
+      body: JSON.stringify({ backup_name: backupName })
+    }),
+
+  listBackups: () => request<any[]>('/settings/backups'),
+
   getAuditLogs: () => request<any>('/settings/audit-logs'),
 
   getNotifications: () => request<any>('/settings/notifications'),
@@ -256,5 +321,127 @@ export const api = {
     }),
 
   // Global Search
-  search: (query: string) => request<any>(`/search?q=${encodeURIComponent(query)}`)
+  search: (query: string) => request<any>(`/search?q=${encodeURIComponent(query)}`),
+
+  // =====================================================
+  // ADVANCED ENTERPRISE 3D CAPABILITIES
+  // =====================================================
+
+  // 1. Revenue Evidence Graph
+  getEvidenceGraph: (customerId?: string, exceptionId?: string) => {
+    let url = '/evidence-graph?';
+    if (customerId) url += `customer_id=${customerId}&`;
+    if (exceptionId) url += `exception_id=${exceptionId}&`;
+    return request<any>(url);
+  },
+
+  // 2. Historical Billing Replay Engine
+  runHistoricalReplay: (period = '2026-08', customerId?: string) =>
+    request<any>('/historical-replay/run', {
+      method: 'POST',
+      body: JSON.stringify({ period, customer_id: customerId })
+    }),
+
+  getHistoricalReplays: () => request<any[]>('/historical-replay/runs'),
+
+  compareHistoricalReplays: (runIdA: string, runIdB: string) =>
+    request<any>(`/historical-replay/compare?run_id_a=${runIdA}&run_id_b=${runIdB}`),
+
+  // 3. What-If Revenue Recovery Simulator
+  runWhatIfSimulation: (params: {
+    name?: string;
+    description?: string;
+    baseline_period?: string;
+    target_type?: string;
+    target_id?: string;
+    overage_rate_multiplier?: number;
+    base_fee_multiplier?: number;
+    minimum_commit_multiplier?: number;
+    discount_cap_percent?: number;
+    tier_threshold_adjustment_pct?: number;
+    save?: boolean;
+  }) =>
+    request<any>('/what-if/simulate', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }),
+
+  getWhatIfScenarios: () => request<any[]>('/what-if/scenarios'),
+
+  getWhatIfScenario: (id: string) => request<any>(`/what-if/scenarios/${id}`),
+
+  deleteWhatIfScenario: (id: string) =>
+    request<any>(`/what-if/scenarios/${id}`, { method: 'DELETE' }),
+
+  // 4. Intelligent Leakage Prioritization
+  getPrioritizedExceptions: () => request<any>('/prioritization/scores'),
+
+  assignPrioritizedExceptions: (exceptionIds: string[], assigneeId: string) =>
+    request<any>('/prioritization/assign', {
+      method: 'POST',
+      body: JSON.stringify({ exception_ids: exceptionIds, assignee_id: assigneeId })
+    }),
+
+  overrideExceptionPriority: (exceptionId: string, priority: string, reason: string) =>
+    request<any>('/prioritization/override', {
+      method: 'POST',
+      body: JSON.stringify({ exception_id: exceptionId, priority, reason })
+    }),
+
+  // 5. Usage Meter Integrity Monitor
+  scanUsageIntegrity: (period = '2026-10', sourceName = 'Primary Ingestion API Stream') =>
+    request<any>('/usage-integrity/scan', {
+      method: 'POST',
+      body: JSON.stringify({ period, source_name: sourceName })
+    }),
+
+  getUsageIntegrityReports: () => request<any[]>('/usage-integrity/reports'),
+
+  getUsageIntegrityReport: (id: string) => request<any>(`/usage-integrity/reports/${id}`),
+
+  // 6. Billing Rules Regression Testing Lab
+  testBillingRuleProposal: (proposalData: {
+    title: string;
+    description?: string;
+    test_period?: string;
+    proposed_rule?: any;
+  }) =>
+    request<any>('/billing-lab/test', {
+      method: 'POST',
+      body: JSON.stringify(proposalData)
+    }),
+
+  getBillingRuleProposals: () => request<any[]>('/billing-lab/proposals'),
+
+  getBillingRuleProposal: (id: string) => request<any>(`/billing-lab/proposals/${id}`),
+
+  reviewBillingRuleProposal: (id: string, newStatus: string, notes?: string) =>
+    request<any>(`/billing-lab/proposals/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ new_status: newStatus, notes })
+    }),
+
+  // 7. Systemic Root Cause & Blast Radius Analysis
+  getRootCauseClusters: () => request<any>('/root-cause/clusters'),
+
+  confirmRootCauseCluster: (clusterId: string, status: string, confirmedCause: string, notes?: string) =>
+    request<any>(`/root-cause/clusters/${clusterId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ status, confirmed_cause: confirmedCause, investigation_notes: notes })
+    }),
+
+  // 8. Automated Audit Evidence Pack
+  generateEvidencePack: (packType: string, targetId?: string, period = '2026-10') =>
+    request<any>('/evidence-pack/generate', {
+      method: 'POST',
+      body: JSON.stringify({ pack_type: packType, target_id: targetId, period })
+    }),
+
+  getEvidencePacks: () => request<any[]>('/evidence-pack/packs'),
+
+  getEvidencePack: (id: string) => request<any>(`/evidence-pack/${id}`),
+
+  downloadEvidencePackPdfUrl: (id: string) => `${API_BASE}/evidence-pack/${id}/pdf`,
+
+  downloadEvidencePackXlsxUrl: (id: string) => `${API_BASE}/evidence-pack/${id}/xlsx`
 };

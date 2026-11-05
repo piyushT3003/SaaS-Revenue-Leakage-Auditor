@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from backend.app.core.database import get_db
 from backend.app.models.entities import AppSettings, User, AuditLog, NotificationEvent
 from backend.app.schemas.api_schemas import AppSettingsSchema, UserCreate
-from backend.app.security.auth import get_password_hash
+from backend.app.security.auth import get_password_hash, require_role
+from backend.app.services.backup_service import BackupService
 
 router = APIRouter()
 
@@ -22,7 +23,11 @@ def get_settings(db: Session = Depends(get_db)):
     return AppSettingsSchema()
 
 @router.post("")
-def update_settings(payload: Dict[str, Any], db: Session = Depends(get_db)):
+def update_settings(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin"]))
+):
     setting_rec = db.query(AppSettings).filter(AppSettings.key == "app_config").first()
     if not setting_rec:
         setting_rec = AppSettings(key="app_config", value_json="{}")
@@ -40,10 +45,11 @@ def update_settings(payload: Dict[str, Any], db: Session = Depends(get_db)):
     setting_rec.value_json = json.dumps(payload)
 
     log = AuditLog(
+        user_id=current_user.id,
         action="UPDATE_SETTINGS",
         entity_type="System",
         entity_id="CONFIG",
-        details="System configuration settings updated successfully",
+        details=f"System configuration settings updated successfully by {current_user.full_name}",
         created_at=datetime.utcnow()
     )
     db.add(log)
@@ -67,7 +73,11 @@ def list_system_users(db: Session = Depends(get_db)):
     ]
 
 @router.post("/users")
-def create_system_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_system_user(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin"]))
+):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="User with this email already exists")
@@ -80,9 +90,47 @@ def create_system_user(payload: UserCreate, db: Session = Depends(get_db)):
         is_active=True
     )
     db.add(new_user)
+    
+    log = AuditLog(
+        user_id=current_user.id,
+        action="CREATE_USER",
+        entity_type="User",
+        entity_id=new_user.id,
+        details=f"Created user {new_user.email} ({new_user.role}) by {current_user.full_name}",
+        created_at=datetime.utcnow()
+    )
+    db.add(log)
     db.commit()
 
     return {"status": "success", "user_id": new_user.id, "email": new_user.email}
+
+@router.post("/backup")
+def create_backup(
+    payload: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin"]))
+):
+    backup_name = payload.get("backup_name") if payload else None
+    result = BackupService.create_database_snapshot(db, backup_name=backup_name)
+    return result
+
+@router.post("/restore")
+def restore_backup(
+    payload: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin"]))
+):
+    backup_name = payload.get("backup_name")
+    if not backup_name:
+        raise HTTPException(status_code=400, detail="backup_name is required for restore")
+    result = BackupService.restore_database_snapshot(db, backup_name=backup_name)
+    return result
+
+@router.get("/backups")
+def list_backups(
+    current_user: User = Depends(require_role(["Admin"]))
+):
+    return BackupService.list_available_backups()
 
 @router.get("/audit-logs")
 def list_audit_logs(db: Session = Depends(get_db)):

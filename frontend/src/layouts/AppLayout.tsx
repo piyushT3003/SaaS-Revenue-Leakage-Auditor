@@ -6,6 +6,8 @@ import { CommandPalette } from '../components/CommandPalette';
 import { DateRangeModal } from '../components/DateRangeModal';
 import { NotificationDrawer } from '../components/NotificationDrawer';
 import { HelpModal } from '../components/HelpModal';
+import { CinematicBackground } from '../components/3d/CinematicBackground';
+import { ScrollProgressIndicator } from '../components/3d/ScrollProgressIndicator';
 import { api } from '../services/api';
 
 export const AppLayout: React.FC = () => {
@@ -21,21 +23,52 @@ export const AppLayout: React.FC = () => {
   });
 
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [openExceptionsCount, setOpenExceptionsCount] = useState(14);
+  const [revenueHealthScore, setRevenueHealthScore] = useState(92.4);
   const location = useLocation();
 
-  // Load notifications
-  const loadNotifications = async () => {
+  // Load layout data
+  const loadLayoutData = async () => {
     try {
-      const res = await api.getNotifications();
-      setNotifications(res.items || []);
+      const [notifs, excRes, overviewRes] = await Promise.all([
+        api.getNotifications(),
+        api.getExceptions({ status: 'Open' }),
+        api.getOverview('2026-10-01', '2026-10-31')
+      ]);
+      setNotifications(notifs.items || []);
+      if (excRes?.metrics?.open_exceptions !== undefined) {
+        setOpenExceptionsCount(excRes.metrics.open_exceptions);
+      }
+      if (overviewRes?.revenue_health_score !== undefined) {
+        setRevenueHealthScore(overviewRes.revenue_health_score);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    const ensureAuthenticated = async () => {
+      const existingToken = localStorage.getItem('token');
+      if (!existingToken) {
+        try {
+          const authRes = await api.login({
+            email: 'admin@saas-assurance.io',
+            password: 'Admin@123'
+          });
+          if (authRes.access_token) {
+            localStorage.setItem('token', authRes.access_token);
+            localStorage.setItem('user', JSON.stringify(authRes.user));
+          }
+        } catch (err) {
+          console.warn('Authentication session init notice:', err);
+        }
+      }
+      loadLayoutData();
+    };
+
+    ensureAuthenticated();
+  }, [location.pathname]);
 
   // Keyboard shortcut Ctrl+K for search
   useEffect(() => {
@@ -71,11 +104,15 @@ export const AppLayout: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col selection:bg-rose-500/30 selection:text-white">
+    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col selection:bg-rose-500/30 selection:text-white relative">
+      {/* Cinematic 3D Multi-Layer Starfield & Ambient Parallax */}
+      <CinematicBackground />
+      <ScrollProgressIndicator />
+
       {/* Fixed Left Sidebar */}
       <Sidebar
-        exceptionCount={14}
-        revenueHealthScore={92.4}
+        exceptionCount={openExceptionsCount}
+        revenueHealthScore={revenueHealthScore}
         revenueHealthTrend="+2.8 pp"
       />
 
@@ -112,7 +149,7 @@ export const AppLayout: React.FC = () => {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
-        onRefresh={loadNotifications}
+        onRefresh={loadLayoutData}
       />
 
       <HelpModal

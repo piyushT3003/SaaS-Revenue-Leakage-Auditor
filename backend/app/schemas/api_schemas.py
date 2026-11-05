@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 # ----------------- Auth & Users -----------------
 class Token(BaseModel):
@@ -27,8 +27,7 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ----------------- Executive Overview -----------------
 class SparklinePoint(BaseModel):
@@ -98,6 +97,7 @@ class ExecutiveOverviewResponse(BaseModel):
     exceptions_by_type: List[BillingExceptionTypeDistribution]
     customer_profitability: CustomerProfitabilitySummary
     recent_exceptions: List[RecentExceptionItem]
+    audit_status: Optional[Dict[str, Any]] = None
 
 # ----------------- Reconciliation -----------------
 class ReconciliationRow(BaseModel):
@@ -123,12 +123,17 @@ class ReconciliationSummary(BaseModel):
     matched_records: int
     unmatched_records: int
     total_obligations: int
+    audit_status: Optional[str] = None
+    data_freshness: Optional[str] = None
+    latest_run_id: Optional[str] = None
 
 class ReconciliationResponse(BaseModel):
     period: str
     summary: ReconciliationSummary
     rows: List[ReconciliationRow]
     run_history: List[Dict[str, Any]]
+    readiness: Optional[Dict[str, Any]] = None
+    audit_status: Optional[Dict[str, Any]] = None
 
 # ----------------- Exception Management -----------------
 class InvestigationNoteSchema(BaseModel):

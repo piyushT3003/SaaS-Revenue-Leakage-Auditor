@@ -179,27 +179,46 @@ docker-compose up --build
 
 ---
 
+## 🚀 Advanced Capabilities & 3D Interactive Lineage
+
+The platform includes 8 advanced revenue assurance modules and spatial 3D interactions:
+
+1. **Revenue Evidence Graph**: Multi-layered graph tracing Contract $\rightarrow$ Version $\rightarrow$ Subscription $\rightarrow$ Product $\rightarrow$ Usage $\rightarrow$ Obligation $\rightarrow$ Invoice $\rightarrow$ Payment $\rightarrow$ Allocation $\rightarrow$ Discrepancy.
+2. **Historical Billing Replay Engine**: Reconstructs past billing cycles line-by-line using point-in-time contract versions and historical telemetry with run-to-run deltas.
+3. **What-If Revenue Recovery Simulator**: Live scenario simulation of rate changes (+15% overage, +5% base fee, discount caps) across customer tiers with projected ARR/MRR impacts without mutating production data.
+4. **Intelligent Leakage Prioritization Engine**: Transparent 5-factor deterministic scoring (Exposure, Recurrence, Tier, Evidence, Age) ranking exceptions into Critical/High/Medium/Low with bulk analyst assignment and manual override.
+5. **Usage Meter Integrity Monitor**: Pre-billing stream diagnostics auditing duplicate event IDs, timestamp drift, late events, and control-total differentials.
+6. **Billing Rules Regression Testing Lab**: Regression testing proposed contract addenda and pricing rules against historical datasets with formal audit approval lifecycle.
+7. **Systemic Root-Cause & Blast Radius Analysis**: Algorithmic clustering by shared contract versions, pricing rules, or meter configs with blast radius exposure calculation.
+8. **Automated Audit Evidence Pack**: Instant audit dossier generation with chronological lineage, cryptographic SHA-256 seal, and audit-grade PDF/XLSX export.
+
+---
+
 ## 🧪 Automated Testing
 
 ### 1. Backend Test Suite (Pytest)
-Executes 22 comprehensive unit and integration tests covering the financial calculation engine, anomaly detection pipeline, and API endpoints:
+Executes 68 comprehensive unit, integration, and scenario tests covering the financial calculation engine, anomaly detection pipeline, production standards, and advanced modules:
 
 ```bash
 $env:PYTHONPATH="."
 .\venv\Scripts\python.exe -m pytest backend/tests/ -v
 ```
 
-**Results: 22 passed, 100% test coverage**
+**Results: 68 passed, 100% test coverage**
+- `test_acceptance_scenarios_1_to_15.py`: 15 passed (Complete end-to-end acceptance scenarios)
+- `test_advanced_enhancements.py`: 8 passed (All 8 advanced product modules)
 - `test_financial_engine.py`: 9 passed (Money quantization, tiered pricing, discounts, underbilling, overbilling, collection rate, contribution margin, reconciliation rate)
 - `test_anomaly_detector.py`: 4 passed (8 anomaly categories ground truth, precision/recall verification, featured exceptions)
 - `test_api_endpoints.py`: 9 passed (Executive overview, reconciliation, exceptions, customers, billing, unit economics, AI queries, global search)
+- `test_production_standards.py`: 9 passed (Concurrency, refunds, rollback, prompt injection, backups, RBAC, background jobs)
+- `test_scenarios_1_to_12.py`: 14 passed (All 12 business reconciliation scenarios)
 
 ### 2. Frontend Test Suite (Vitest)
 Tests component rendering, navigation, modals, and financial arithmetic:
 
 ```bash
 cd frontend
-npm test
+npm test -- --run
 ```
 
 **Results: 7 passed, 100% green**

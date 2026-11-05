@@ -3,7 +3,8 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Layers, AlertTriangle, CreditCard, Users, Coins, TrendingUp,
   Maximize2, Info, ArrowUpRight, ArrowDownRight, Send, Sparkles,
-  ExternalLink, MoreHorizontal, CheckCircle2, ChevronRight
+  ExternalLink, MoreHorizontal, CheckCircle2, ChevronRight,
+  ShieldCheck, Clock, RefreshCw, FileText
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
@@ -11,6 +12,13 @@ import {
 } from 'recharts';
 import { api } from '../../services/api';
 import { ExecutiveOverviewData, RecentExceptionItem } from '../../types';
+import { Interactive3DCard } from '../../components/3d/Interactive3DCard';
+import { AnimatedNumber } from '../../components/3d/AnimatedNumber';
+import { PageTransition } from '../../components/3d/PageTransition';
+import { StaggeredContainer } from '../../components/3d/StaggeredContainer';
+import { MagneticButton } from '../../components/3d/MagneticButton';
+import { WhatIfSimulatorModal } from '../../components/3d/WhatIfSimulatorModal';
+import { AuditEvidencePackModal } from '../../components/3d/AuditEvidencePackModal';
 
 export const OverviewPage: React.FC = () => {
   const { dateRange } = useOutletContext<{ dateRange: { start: string; end: string } }>();
@@ -20,6 +28,8 @@ export const OverviewPage: React.FC = () => {
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResponseModal, setAiResponseModal] = useState<any>(null);
+  const [showWhatIfModal, setShowWhatIfModal] = useState(false);
+  const [showEvidencePackModal, setShowEvidencePackModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,9 +91,9 @@ export const OverviewPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <PageTransition className="space-y-5">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between volumetric-glow">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
             <span>Executive</span>
@@ -93,14 +103,105 @@ export const OverviewPage: React.FC = () => {
             Contract-to-Cash, Revenue Leakage & Customer Unit Economics
           </p>
         </div>
+
+        <div className="flex items-center space-x-2.5">
+          <button
+            onClick={() => setShowWhatIfModal(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-emerald-300 border border-emerald-500/30 text-xs font-semibold shadow-sm transition"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            <span>What-If Recovery Simulator</span>
+          </button>
+
+          <button
+            onClick={() => setShowEvidencePackModal(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-teal-300 border border-teal-500/30 text-xs font-semibold shadow-sm transition"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            <span>Audit Evidence Pack</span>
+          </button>
+        </div>
+      </div>
+
+      {/* STALE AUDIT WARNING BANNER (Section 12 & 19) */}
+      {data.audit_status?.is_stale && (
+        <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 flex items-center justify-between text-xs shadow-lg">
+          <div className="flex items-center space-x-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-semibold text-white">Audit data is stale — </span>
+              <span>{data.audit_status.reason || 'New source records were imported since the last audit run.'}</span>
+              <span className="text-slate-400 ml-2">Re-run recommended for updated assurance.</span>
+            </div>
+          </div>
+          <MagneticButton
+            onClick={() => navigate('/reconciliation')}
+            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs flex items-center space-x-1"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Re-Audit Now</span>
+          </MagneticButton>
+        </div>
+      )}
+
+      {/* REVENUE HEALTH & AUDIT ASSURANCE PANEL (Section 12 & 19) */}
+      <div className="glass-panel p-4 rounded-2xl border border-cyan-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 volumetric-glow">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Revenue Assurance Health</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
+                {data.revenue_health.score}% {data.revenue_health.status} ({data.revenue_health.trend})
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] text-slate-400">
+              <span>Data Quality: <strong className="text-cyan-300">{data.revenue_health.factors?.data_integrity || 98.2}%</strong></span>
+              <span>•</span>
+              <span>Reconciliation Rate: <strong className="text-cyan-300">{data.revenue_health.factors?.reconciliation_rate || 92.4}%</strong></span>
+              <span>•</span>
+              <span>Collection Efficiency: <strong className="text-cyan-300">{data.revenue_health.factors?.collection_efficiency || 91.5}%</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+          <div className="text-right">
+            <div className="flex items-center space-x-1.5 justify-end">
+              <span className="text-[10px] text-slate-500 uppercase font-semibold">Latest Audit:</span>
+              <span className="text-xs font-mono font-bold text-white">{data.audit_status?.latest_run_id || 'RUN-202610-LATEST'}</span>
+              <span className={`px-2 py-0.2 rounded-full text-[10px] font-semibold border ${
+                data.audit_status?.is_stale
+                  ? 'bg-amber-950/60 text-amber-300 border-amber-500/40'
+                  : 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
+              }`}>
+                {data.audit_status?.is_stale ? 'Stale' : (data.audit_status?.status || 'Successful')}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              {data.audit_status?.last_run_at ? new Date(data.audit_status.last_run_at).toLocaleString() : 'Active Assurance Scope'}
+            </span>
+          </div>
+
+          <button
+            onClick={() => navigate('/reconciliation')}
+            className="btn-3d px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-medium flex items-center space-x-1.5"
+          >
+            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Audit Center</span>
+          </button>
+        </div>
       </div>
 
       {/* TOP ROW: 5 KPI CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <StaggeredContainer className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* Card 1: Total Revenue (MRR) */}
-        <div
+        <Interactive3DCard
+          glowColor="cyan"
           onClick={() => navigate('/billing')}
-          className="glass-panel p-4 rounded-2xl cursor-pointer card-interactive border border-cyan-500/20 relative overflow-hidden group"
+          className="glass-panel p-4 rounded-2xl cursor-pointer border border-cyan-500/20 relative overflow-hidden group shadow-lg"
         >
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -109,25 +210,28 @@ export const OverviewPage: React.FC = () => {
             <div className="w-16 h-7">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.mrr_kpi.sparkline.map((v, i) => ({ val: v, i }))}>
-                  <Line type="monotone" dataKey="val" stroke="#00f0ff" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="val" stroke="#00f0ff" strokeWidth={2} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">{data.mrr_kpi.label}</span>
-            <div className="text-xl font-bold text-white tracking-tight mt-0.5">{data.mrr_kpi.value}</div>
+            <div className="text-xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.mrr_kpi.raw_value} formatAsCurrency prefix="₹" />
+            </div>
             <div className="flex items-center space-x-1 mt-1 text-[11px] font-medium text-emerald-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>+{data.mrr_kpi.change_pct}% {data.mrr_kpi.change_label}</span>
             </div>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 2: Revenue Leakage */}
-        <div
+        <Interactive3DCard
+          glowColor="rose"
           onClick={() => navigate('/exceptions')}
-          className="glass-panel glass-panel-red p-4 rounded-2xl cursor-pointer card-interactive border border-rose-500/30 relative overflow-hidden group shadow-[0_0_20px_rgba(225,29,72,0.12)]"
+          className="glass-panel glass-panel-red p-4 rounded-2xl cursor-pointer border border-rose-500/30 relative overflow-hidden group shadow-[0_0_24px_rgba(225,29,72,0.18)]"
         >
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
@@ -136,25 +240,28 @@ export const OverviewPage: React.FC = () => {
             <div className="w-16 h-7">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.leakage_kpi.sparkline.map((v, i) => ({ val: v, i }))}>
-                  <Line type="monotone" dataKey="val" stroke="#f43f5e" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="val" stroke="#f43f5e" strokeWidth={2} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">{data.leakage_kpi.label}</span>
-            <div className="text-xl font-bold text-white tracking-tight mt-0.5">{data.leakage_kpi.value}</div>
+            <div className="text-xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.leakage_kpi.raw_value} formatAsCurrency prefix="₹" />
+            </div>
             <div className="flex items-center space-x-1 mt-1 text-[11px] font-medium text-rose-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>+{data.leakage_kpi.change_pct}% {data.leakage_kpi.change_label}</span>
             </div>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 3: Outstanding Payments */}
-        <div
+        <Interactive3DCard
+          glowColor="blue"
           onClick={() => navigate('/billing')}
-          className="glass-panel p-4 rounded-2xl cursor-pointer card-interactive border border-blue-500/20 relative overflow-hidden group"
+          className="glass-panel p-4 rounded-2xl cursor-pointer border border-blue-500/20 relative overflow-hidden group shadow-lg"
         >
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
@@ -163,25 +270,28 @@ export const OverviewPage: React.FC = () => {
             <div className="w-16 h-7">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.outstanding_kpi.sparkline.map((v, i) => ({ val: v, i }))}>
-                  <Line type="monotone" dataKey="val" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="val" stroke="#3b82f6" strokeWidth={2} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">{data.outstanding_kpi.label}</span>
-            <div className="text-xl font-bold text-white tracking-tight mt-0.5">{data.outstanding_kpi.value}</div>
+            <div className="text-xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.outstanding_kpi.raw_value} formatAsCurrency prefix="₹" />
+            </div>
             <div className="flex items-center space-x-1 mt-1 text-[11px] font-medium text-emerald-400">
               <ArrowDownRight className="w-3.5 h-3.5" />
               <span>{data.outstanding_kpi.change_pct}% {data.outstanding_kpi.change_label}</span>
             </div>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 4: Active Customers */}
-        <div
+        <Interactive3DCard
+          glowColor="cyan"
           onClick={() => navigate('/customers')}
-          className="glass-panel p-4 rounded-2xl cursor-pointer card-interactive border border-cyan-500/20 relative overflow-hidden group"
+          className="glass-panel p-4 rounded-2xl cursor-pointer border border-cyan-500/20 relative overflow-hidden group shadow-lg"
         >
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -190,25 +300,28 @@ export const OverviewPage: React.FC = () => {
             <div className="w-16 h-7">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.active_customers_kpi.sparkline.map((v, i) => ({ val: v, i }))}>
-                  <Line type="monotone" dataKey="val" stroke="#00f0ff" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="val" stroke="#00f0ff" strokeWidth={2} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">{data.active_customers_kpi.label}</span>
-            <div className="text-xl font-bold text-white tracking-tight mt-0.5">{data.active_customers_kpi.value}</div>
+            <div className="text-xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.active_customers_kpi.raw_value} />
+            </div>
             <div className="flex items-center space-x-1 mt-1 text-[11px] font-medium text-emerald-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>+{data.active_customers_kpi.change_pct}% {data.active_customers_kpi.change_label}</span>
             </div>
           </div>
-        </div>
+        </Interactive3DCard>
 
         {/* Card 5: Contribution Margin */}
-        <div
+        <Interactive3DCard
+          glowColor="amber"
           onClick={() => navigate('/unit-economics')}
-          className="glass-panel p-4 rounded-2xl cursor-pointer card-interactive border border-amber-500/20 relative overflow-hidden group"
+          className="glass-panel p-4 rounded-2xl cursor-pointer border border-amber-500/20 relative overflow-hidden group shadow-lg"
         >
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -217,21 +330,23 @@ export const OverviewPage: React.FC = () => {
             <div className="w-16 h-7">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.contribution_margin_kpi.sparkline.map((v, i) => ({ val: v, i }))}>
-                  <Line type="monotone" dataKey="val" stroke="#fbbf24" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="val" stroke="#fbbf24" strokeWidth={2} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="mt-3">
             <span className="text-[11px] font-medium text-slate-400 block">{data.contribution_margin_kpi.label}</span>
-            <div className="text-xl font-bold text-white tracking-tight mt-0.5">{data.contribution_margin_kpi.value}</div>
+            <div className="text-xl font-bold text-white tracking-tight mt-0.5">
+              <AnimatedNumber value={data.contribution_margin_kpi.raw_value} suffix="%" />
+            </div>
             <div className="flex items-center space-x-1 mt-1 text-[11px] font-medium text-emerald-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>+{data.contribution_margin_kpi.change_pct} {data.contribution_margin_kpi.change_label}</span>
             </div>
           </div>
-        </div>
-      </div>
+        </Interactive3DCard>
+      </StaggeredContainer>
 
       {/* MIDDLE ROW: 3 ANALYTICAL PANELS */}
       <div className="grid grid-cols-12 gap-5">
@@ -314,7 +429,9 @@ export const OverviewPage: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-black text-white">14</span>
+                <span className="text-2xl font-black text-white">
+                  {data.exceptions_by_type.reduce((acc, curr) => acc + curr.count, 0)}
+                </span>
                 <span className="text-[10px] text-slate-400 -mt-0.5">Exceptions</span>
               </div>
             </div>
@@ -430,11 +547,13 @@ export const OverviewPage: React.FC = () => {
             <div className="flex items-center space-x-1.5 text-xs">
               {['All', 'Underbilling', 'Overbilling', 'Missing', 'Others'].map((tab) => {
                 const countMap: Record<string, number> = {
-                  All: 14,
-                  Underbilling: 4,
-                  Overbilling: 2,
-                  Missing: 2,
-                  Others: 6
+                  All: data.recent_exceptions.length,
+                  Underbilling: data.recent_exceptions.filter((e) => e.issue_type === 'Underbilling').length,
+                  Overbilling: data.recent_exceptions.filter((e) => e.issue_type === 'Overbilling').length,
+                  Missing: data.recent_exceptions.filter((e) => e.issue_type === 'Missing Charges').length,
+                  Others: data.recent_exceptions.filter(
+                    (e) => !['Underbilling', 'Overbilling', 'Missing Charges'].includes(e.issue_type)
+                  ).length
                 };
                 const isSelected = selectedExceptionFilter === tab;
                 return (
@@ -698,6 +817,18 @@ export const OverviewPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      {/* Advanced 3D Capability Modals */}
+      <WhatIfSimulatorModal
+        isOpen={showWhatIfModal}
+        onClose={() => setShowWhatIfModal(false)}
+      />
+
+      <AuditEvidencePackModal
+        isOpen={showEvidencePackModal}
+        onClose={() => setShowEvidencePackModal(false)}
+        packType="PeriodAudit"
+        targetId="2026-10"
+      />
+    </PageTransition>
   );
 };

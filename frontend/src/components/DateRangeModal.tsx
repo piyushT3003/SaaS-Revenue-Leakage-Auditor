@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, X, Check } from 'lucide-react';
 
 interface DateRangeModalProps {
@@ -40,12 +41,25 @@ export const DateRangeModal: React.FC<DateRangeModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-      <div className="relative w-full max-w-md bg-[#0d1629] border border-cyan-500/30 rounded-2xl p-6 shadow-2xl shadow-[0_0_30px_rgba(6,182,212,0.15)]">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/75 backdrop-blur-md"
+          />
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.94, opacity: 0, y: 12 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="relative w-full max-w-md bg-[#0d1629] border border-cyan-500/30 rounded-2xl p-6 shadow-2xl shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10"
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center space-x-2">
             <Calendar className="w-5 h-5 text-cyan-400" />
             <h3 className="text-base font-bold text-white">Select Reporting Period</h3>
@@ -121,7 +135,9 @@ export const DateRangeModal: React.FC<DateRangeModalProps> = ({
             Apply Period
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
+      )}
+    </AnimatePresence>
   );
 };
