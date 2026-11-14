@@ -16,6 +16,14 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
+      - name: Seed synthetic database
+        run: |
+          python -c "
+          from backend.app.core.database import SessionLocal, Base, engine
+          import backend.app.models.entities
+          from backend.app.services.seed_service import seed_database
+          Base.metadata.create_all(bind=engine)
+          db = SessionLocal(); seed_database(db, force_reset=False); db.close()"
       - run: python -m pytest backend/tests/ -q
 
   frontend:
