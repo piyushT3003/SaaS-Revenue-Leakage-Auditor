@@ -5,8 +5,8 @@
 [![React](https://img.shields.io/badge/React-19.0-61DAFB.svg?style=flat&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6.svg?style=flat&logo=typescript)](https://www.typescriptlang.org)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg?style=flat&logo=tailwind-css)](https://tailwindcss.com)
-[![Pytest](https://img.shields.io/badge/Tests-68%20Passed%20(100%25)-brightgreen.svg?style=flat&logo=pytest)](https://pytest.org)
-[![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor)
+[![CI](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An enterprise-grade financial intelligence, contract reconciliation, and revenue assurance platform designed for modern subscription and consumption-based B2B SaaS businesses. The platform audits the complete **Contract-to-Cash** lifecycle, identifies revenue leakage, evaluates billing discrepancies across eight deterministic anomaly categories, computes customer unit economics with GAAP-compliant COGS allocation, and provides database-grounded natural-language inquiries powered by Google Gemini AI.
 
@@ -125,7 +125,7 @@ The frontend combines enterprise functional density with modern 3D spatial depth
 | **Frontend** | React 19, TypeScript, Vite, React Router v7, Tailwind CSS, Framer Motion, Recharts, Lucide React | High-performance, responsive, accessible interface with real-time financial charts |
 | **Backend** | Python 3.11+, FastAPI, SQLAlchemy, Pydantic v2, Pandas, ReportLab, OpenPyXL | High-throughput async REST API with deterministic financial calculation engines |
 | **Database** | SQLite (Default local zero-config) / PostgreSQL 16 (Enterprise Production) | Dual-mode persistence with transactional consistency, foreign key enforcement, and indexes |
-| **AI Copilot** | Google Gemini 1.5 Pro / Flash via parameterized relational tool callers | Natural language query interface with zero hallucination and strict read-only execution |
+| **AI Copilot** | Google Gemini (via the `google-genai` SDK) via parameterized relational tool callers | Natural language query interface where answers are grounded in tool-call results from read-only queries, which reduces the risk of made-up figures |
 | **Testing** | Pytest, Vitest, Testing Library | Comprehensive unit, scenario, and component test verification |
 | **Analytics** | SQL Analytical Views & DAX Measures | Pre-built schema integration for Power BI, Tableau, and data warehouses |
 
@@ -169,7 +169,7 @@ python -m venv venv
 # Install dependencies
 pip install -r backend/requirements.txt
 
-# Start backend server (Dedicated Port: 8085)
+# Start backend server (local port 8085; Docker uses 8000)
 python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8085 --reload
 ```
 *Backend runs at `http://localhost:8085` (API documentation available at `http://localhost:8085/docs`).*
@@ -185,7 +185,7 @@ npm install
 # Start Vite dev server (Dedicated Port: 5185)
 npm run dev
 ```
-*Frontend runs at `http://localhost:5185`.*
+*Frontend runs at `http://localhost:5185` (Docker uses 5173).*
 
 ---
 
@@ -204,7 +204,7 @@ docker-compose up --build
 
 ## Quality & Test Verification
 
-The application maintains 100% automated test coverage across business workflows, financial logic, and user interface components.
+The project includes automated tests for business workflows, financial logic, the anomaly detector and the API. They run on every push via GitHub Actions (see the CI badge above).
 
 ### Backend Test Suite (Pytest)
 ```bash
