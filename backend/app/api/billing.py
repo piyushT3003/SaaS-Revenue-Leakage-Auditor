@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, Form, st
 from sqlalchemy.orm import Session
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 import uuid
 from pydantic import BaseModel
 from backend.app.core.config import settings
