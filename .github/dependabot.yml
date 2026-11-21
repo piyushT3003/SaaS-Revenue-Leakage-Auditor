@@ -1,0 +1,17 @@
+# Weekly pull requests for dependency updates; each one runs the full CI before it can be merged.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      three:
+        patterns: ["three", "@react-three/*", "@types/three"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

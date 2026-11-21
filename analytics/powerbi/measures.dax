@@ -1,0 +1,81 @@
+// =====================================================================================
+// SaaS Revenue Assurance — DAX measure library
+// Model: reporting.* views (see README.md for relationships). Every measure mirrors the
+// definition used by the React application (docs/metrics/METRIC_DEFINITIONS.md).
+// Put measures in a dedicated "_Measures" table. Format strings are noted per measure.
+// =====================================================================================
+
+// ---------------------------------------------------------------- Reconciliation (fact_reconciliation)
+Expected Charges = SUM ( fact_reconciliation[expected_amount] )                         // "₹#,##,##0"
+Invoiced Amount  = SUM ( fact_reconciliation[invoiced_amount] )
+Billing Variance = [Invoiced Amount] - [Expected Charges]
+
+// Revenue leakage = unique underbilling: Σ max(0, expected − invoiced) over in-scope obligations
+// (EXCLUDED and PENDING_REVIEW rows already carry 0 in underbilled_amount). Equals audit_runs.underbilled_total.
+Revenue Leakage  = SUM ( fact_reconciliation[underbilled_amount] )
+Overbilling      = SUM ( fact_reconciliation[overbilled_amount] )
+
+Obligations In Scope = SUM ( fact_reconciliation[is_in_scope] )
+Matched Obligations  = SUM ( fact_reconciliation[is_matched] )
+Reconciliation Rate % =
+    DIVIDE ( [Matched Obligations], [Obligations In Scope] ) * 100                      // "0.0"
+
+Leakage % of Expected = DIVIDE ( [Revenue Leakage], [Expected Charges] ) * 100
+
+// Previous-period comparison (requires dim_date marked as date table; relationship on audit_period_start)
+Revenue Leakage PM =
+    CALCULATE ( [Revenue Leakage], DATEADD ( dim_date[date_key], -1, MONTH ) )
+Revenue Leakage MoM % =
+    VAR cur = [Revenue Leakage]
+    VAR prev = [Revenue Leakage PM]
+    RETURN IF ( NOT ISBLANK ( prev ) && prev <> 0, DIVIDE ( cur - prev, prev ) * 100 )
+
+// ---------------------------------------------------------------- Exceptions (fact_exception)
+Exception Count        = COUNTROWS ( fact_exception )
+Open Exceptions        = CALCULATE ( [Exception Count], fact_exception[status] IN { "OPEN", "IN_PROGRESS" } )
+Resolved Exceptions    = CALCULATE ( [Exception Count], fact_exception[status] = "RESOLVED" )
+Exception Exposure     = SUM ( fact_exception[financial_impact] )                       // categories can overlap
+Leakage-Counting Exposure =
+    CALCULATE ( [Exception Exposure], fact_exception[counts_toward_leakage] = TRUE () )
+Avg Days to Resolve    = AVERAGE ( fact_exception[days_to_resolve] )
+Resolution Rate %      = DIVIDE ( [Resolved Exceptions], [Exception Count] ) * 100
+Unassigned Open        = CALCULATE ( [Open Exceptions], fact_exception[is_assigned] = FALSE () )
+
+// ---------------------------------------------------------------- Receivables (fact_receivable, per audit as-of date)
+Outstanding Balance = SUMX ( fact_receivable, MAX ( fact_receivable[outstanding], 0 ) )
+Overdue Balance =
+    SUMX ( FILTER ( fact_receivable, fact_receivable[days_past_due] > 0 ), MAX ( fact_receivable[outstanding], 0 ) )
+Collectible Amount  = SUMX ( fact_receivable, fact_receivable[invoice_total] - fact_receivable[credits_applied] )
+Collected Amount    = SUM ( fact_receivable[payments_allocated] )
+Collection Rate %   = DIVIDE ( [Collected Amount], [Collectible Amount] ) * 100
+Overdue Share %     = DIVIDE ( [Overdue Balance], [Outstanding Balance] ) * 100
+Unapplied Cash      = SUM ( fact_payment_issue[unallocated_amount] )
+
+// ---------------------------------------------------------------- Billing (fact_invoice_line)
+Billed Revenue (Gross) = SUM ( fact_invoice_line[line_amount] )
+Discounts Given        = SUM ( fact_invoice_line[discount_amount] )
+Effective Discount %   = DIVIDE ( [Discounts Given], [Billed Revenue (Gross)] + [Discounts Given] ) * 100
+
+// ---------------------------------------------------------------- Unit economics (engine snapshot — never re-derived here)
+Net Revenue        = SUM ( customer_economics_monthly[net_revenue] )
+Direct Cost        = SUM ( customer_economics_monthly[direct_cost] )
+Contribution       = SUM ( customer_economics_monthly[contribution] )
+Contribution Margin % = DIVIDE ( [Contribution], [Net Revenue] ) * 100
+Customers (Economics) = DISTINCTCOUNT ( customer_economics_monthly[customer_id] )
+Revenue per Customer  = DIVIDE ( [Net Revenue], [Customers (Economics)] )
+Cost per Customer     = DIVIDE ( [Direct Cost], [Customers (Economics)] )
+Contribution per Customer = DIVIDE ( [Contribution], [Customers (Economics)] )
+Unprofitable Customers = CALCULATE ( [Customers (Economics)], customer_economics_monthly[profitability] = "UNPROFITABLE" )
+At-Risk Customers      = CALCULATE ( [Customers (Economics)], customer_economics_monthly[profitability] = "AT_RISK" )
+Profitable Customers   = CALCULATE ( [Customers (Economics)], customer_economics_monthly[profitability] = "PROFITABLE" )
+
+Product Revenue      = SUM ( product_economics_monthly[revenue] )
+Product Direct Cost  = SUM ( product_economics_monthly[direct_cost] )
+Product Contribution = SUM ( product_economics_monthly[contribution] )
+Product Margin %     = DIVIDE ( [Product Contribution], [Product Revenue] ) * 100
+
+// ---------------------------------------------------------------- Display helpers
+Leakage Status Colour =
+    SWITCH ( TRUE (), [Leakage % of Expected] >= 1, "#EF2B45", [Leakage % of Expected] >= 0.25, "#F5A524", "#22C55E" )
+Margin Status Colour =
+    SWITCH ( TRUE (), [Contribution Margin %] < 0, "#EF2B45", [Contribution Margin %] < 15, "#F5A524", "#22C55E" )

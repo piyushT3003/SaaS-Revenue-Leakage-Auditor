@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.debugpy",
+    "bradlc.vscode-tailwindcss",
+    "dbaeumer.vscode-eslint",
+    "ms-playwright.playwright",
+    "ms-toolsai.jupyter",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg"
+  ]
+}

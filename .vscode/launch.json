@@ -1,0 +1,46 @@
+{
+  // Debugging. "Full stack (debug)" starts the API under the Python debugger and opens the app in Edge.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API: debug",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["backend.app.main:app", "--host", "127.0.0.1", "--port", "8085"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/venv/Scripts/python.exe",
+      "env": {
+        "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra",
+        "ENVIRONMENT": "development",
+        "PYTHONPATH": "${workspaceFolder}",
+        "CORS_ORIGINS": "http://localhost:5185,http://127.0.0.1:5185"
+      },
+      "preLaunchTask": "DB: start PostgreSQL",
+      "justMyCode": true
+    },
+    {
+      "name": "Web: open in Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5185",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "preLaunchTask": "Web: run (Vite)"
+    },
+    {
+      "name": "Pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-x"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/venv/Scripts/python.exe",
+      "env": { "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra_test", "PYTHONPATH": "${workspaceFolder}" },
+      "preLaunchTask": "DB: start PostgreSQL",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    { "name": "Full stack (debug)", "configurations": ["API: debug", "Web: open in Edge"], "stopAll": true }
+  ]
+}

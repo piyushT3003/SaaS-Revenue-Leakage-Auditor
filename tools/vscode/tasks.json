@@ -1,0 +1,122 @@
+{
+  // SaaS Revenue Assurance — VS Code tasks (Windows).
+  // Quick start: Ctrl+Shift+P → "Tasks: Run Task" → "▶ Start app"  (first time: run "Setup: install dependencies" first).
+  // The app opens at http://localhost:5185 — sign in as piyush@demo.local / Demo-Pass-2026.
+  // Every task is "type": "process" (program + argument list, no shell), so paths with spaces work.
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra",
+      "ENVIRONMENT": "development",
+      "PYTHONPATH": "${workspaceFolder}",
+      "CORS_ORIGINS": "http://localhost:5185,http://127.0.0.1:5185",
+      "VITE_API_PROXY": "http://127.0.0.1:8085"
+    }
+  },
+  "tasks": [
+    {
+      "label": "Setup: install dependencies",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\dev_setup.ps1"],
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "reveal": "always" }
+    },
+    {
+      "label": "DB: start PostgreSQL",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\dev_db.ps1"],
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "reveal": "silent" }
+    },
+    {
+      "label": "API: run (auto-reload)",
+      "type": "process",
+      "command": "${workspaceFolder}\\venv\\Scripts\\python.exe",
+      "args": ["-m", "uvicorn", "backend.app.main:app", "--host", "127.0.0.1", "--port", "8085", "--reload", "--reload-dir", "backend"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra",
+          "ENVIRONMENT": "development",
+          "PYTHONPATH": "${workspaceFolder}",
+          "CORS_ORIGINS": "http://localhost:5185,http://127.0.0.1:5185"
+        }
+      },
+      "isBackground": true,
+      "dependsOn": "DB: start PostgreSQL",
+      "problemMatcher": {
+        "owner": "uvicorn", "pattern": { "regexp": "^__never__$" },
+        "background": { "activesBegin": true, "beginsPattern": "Will watch for changes|Started reloader", "endsPattern": "Application startup complete" }
+      },
+      "presentation": { "panel": "dedicated", "group": "app" }
+    },
+    {
+      "label": "Seed: demo users + audits",
+      "type": "process",
+      "command": "${workspaceFolder}\\venv\\Scripts\\python.exe",
+      "args": ["-m", "backend.app.seed.cli", "--demo-password", "Demo-Pass-2026", "--run-audits"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra", "ENVIRONMENT": "development", "PYTHONPATH": "${workspaceFolder}" }
+      },
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "reveal": "silent" }
+    },
+    {
+      "label": "Web: run (Vite)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "npx", "vite", "--port", "5185", "--strictPort"],
+      "options": { "cwd": "${workspaceFolder}\\frontend", "env": { "VITE_API_PROXY": "http://127.0.0.1:8085" } },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite", "pattern": { "regexp": "^__never__$" },
+        "background": { "activesBegin": true, "beginsPattern": "VITE", "endsPattern": "Local:" }
+      },
+      "presentation": { "panel": "dedicated", "group": "app" }
+    },
+    {
+      "label": "▶ Start app",
+      "dependsOrder": "sequence",
+      "dependsOn": ["API: run (auto-reload)", "Seed: demo users + audits", "Web: run (Vite)"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop: PostgreSQL",
+      "type": "process",
+      "command": "${workspaceFolder}\\.pgenv\\Library\\bin\\pg_ctl.exe",
+      "args": ["-D", "${workspaceFolder}\\.localdb", "stop"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: backend (pytest)",
+      "type": "process",
+      "command": "${workspaceFolder}\\venv\\Scripts\\python.exe",
+      "args": ["-m", "pytest"],
+      "options": { "cwd": "${workspaceFolder}", "env": { "DATABASE_URL": "postgresql+psycopg://postgres@127.0.0.1:5433/sra_test", "PYTHONPATH": "${workspaceFolder}" } },
+      "dependsOn": "DB: start PostgreSQL",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: frontend (Vitest)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "npm", "test"],
+      "options": { "cwd": "${workspaceFolder}\\frontend" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: end-to-end (Playwright, app must be running)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "npx playwright install chromium && npm run e2e"],
+      "options": { "cwd": "${workspaceFolder}\\frontend" },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

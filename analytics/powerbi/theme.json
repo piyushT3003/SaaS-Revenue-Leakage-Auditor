@@ -1,0 +1,16 @@
+{
+  "name": "SaaS Revenue Assurance — Cosmic",
+  "dataColors": ["#4C8DFF", "#EF2B45", "#22D3EE", "#F5A524", "#8B5CF6", "#14B8A6", "#EC4899", "#818CF8"],
+  "background": "#050B1C", "foreground": "#E6ECFF", "tableAccent": "#EF2B45",
+  "good": "#22C55E", "neutral": "#F5A524", "bad": "#EF2B45", "maximum": "#EF2B45", "center": "#8B5CF6", "minimum": "#4C8DFF",
+  "textClasses": {
+    "title": { "fontFace": "Segoe UI Semibold", "fontSize": 14, "color": "#E6ECFF" },
+    "label": { "fontFace": "Segoe UI", "fontSize": 10, "color": "#8B98BD" },
+    "callout": { "fontFace": "Segoe UI Semibold", "fontSize": 28, "color": "#FFFFFF" }
+  },
+  "visualStyles": { "*": { "*": {
+    "background": [{ "color": { "solid": { "color": "#0B1330" } }, "transparency": 10 }],
+    "border": [{ "show": true, "color": { "solid": { "color": "#1E2C5A" } }, "radius": 12 }],
+    "dropShadow": [{ "show": true, "color": { "solid": { "color": "#000000" } }, "transparency": 60 }]
+  } } }
+}

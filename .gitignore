@@ -1,0 +1,53 @@
+# secrets & local config
+.env
+*.env.local
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+# node
+node_modules/
+frontend/dist/
+# data & backups
+*.db
+*.sqlite3
+backups/
+_legacy_backup/
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/test.env
+
+# local runtime (scripts/start_app.ps1)
+.localdb/
+.pgenv/
+localdb.log
+start_app*.log
+api.log
+api.err.log
+web.log
+venv_old_*/
+
+# test output and build artefacts
+frontend/playwright-report/
+frontend/test-results/
+frontend/*.tsbuildinfo
+*.log
+# backups made with scripts/backup (encrypted, but never commit them)
+*.dump
+*.dump.gpg
+*.dump.gpg.sha256
+# stray build artefacts
+*.whl
+
+# reference images used while designing the UI (not part of the product)
+design-references/
+scripts/cleanup_legacy.ps1

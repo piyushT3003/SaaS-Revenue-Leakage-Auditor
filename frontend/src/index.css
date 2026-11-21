@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------------------------
+   Visual system reproduced from design-references/: deep-space navy, glass panels with a thin
+   electric-blue rim, red as the brand/alert accent, blue/cyan for data.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+  --mx: 50%;
+  --my: 50%;
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-space-950 text-ink font-sans antialiased;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+}
+::selection { background: rgba(239, 43, 69, 0.35); }
+
+/* ---------- cosmic backdrop (static layers; animated starfield is a separate component) ---------- */
+.cosmos {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 78% -8%, rgba(47, 123, 255, 0.28), transparent 60%),
+    radial-gradient(900px 520px at 12% 108%, rgba(239, 43, 69, 0.22), transparent 60%),
+    radial-gradient(700px 420px at 105% 70%, rgba(124, 58, 237, 0.16), transparent 65%),
+    linear-gradient(180deg, #040919 0%, #030712 55%, #050617 100%);
+}
+.cosmos .nebula {
+  position: absolute; inset: -10%;
+  transform: translate3d(var(--parallax-x), var(--parallax-y), 0);
+  background:
+    radial-gradient(500px 220px at 70% 12%, rgba(90, 140, 255, 0.18), transparent 70%),
+    radial-gradient(420px 260px at 18% 82%, rgba(255, 60, 90, 0.16), transparent 70%);
+  filter: blur(6px);
+  transition: transform 0.6s cubic-bezier(.2,.7,.2,1);
+}
+.cosmos .planet {
+  position: absolute; right: -6%; top: -18%; width: 46vw; height: 46vw; border-radius: 50%;
+  background: radial-gradient(circle at 30% 70%, rgba(80, 140, 255, 0.35), rgba(10, 30, 80, 0.15) 45%, transparent 62%);
+  box-shadow: inset 30px -40px 80px rgba(60, 120, 255, 0.18);
+  opacity: 0.55;
+  transform: translate3d(calc(var(--parallax-x) * 1.6), calc(var(--parallax-y) * 1.6), 0);
+}
+.cursor-spotlight {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(520px circle at var(--mx) var(--my), rgba(76, 141, 255, 0.07), transparent 60%);
+}
+
+/* ---------- glass panels ---------- */
+@layer components {
+  .panel {
+    @apply relative rounded-card border border-panel-border shadow-card;
+    background:
+      linear-gradient(180deg, rgba(160, 190, 255, 0.10), transparent 22%),   /* holographic top-edge highlight */
+      linear-gradient(180deg, rgba(20, 38, 86, 0.55), rgba(8, 17, 42, 0.72)),
+      rgba(6, 13, 33, 0.6);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+  .panel::before { /* cursor spotlight on the border (positions fed by lib/spotlight.ts) */
+    content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0;
+    background: radial-gradient(260px circle at var(--px, -999px) var(--py, -999px), rgba(140, 185, 255, 0.9), rgba(239, 43, 69, 0.35) 40%, transparent 70%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+    transition: opacity .4s ease;
+  }
+  .panel[data-lit]::before { opacity: 1; }
+  .panel-red {
+    @apply shadow-redSoft;
+    border-color: rgba(239, 43, 69, 0.55);
+    background: linear-gradient(180deg, rgba(255, 150, 170, 0.08), transparent 22%), linear-gradient(180deg, rgba(70, 14, 30, 0.55), rgba(16, 10, 32, 0.78)), rgba(10, 8, 24, 0.6);
+  }
+  .panel-title { @apply text-[15px] font-semibold tracking-tight text-ink; }
+  .muted { @apply text-ink-muted; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition
+           disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blueSoft;
+  }
+  .btn-red {
+    @apply btn text-white;
+    background: linear-gradient(180deg, #ff3a54, #d4142f);
+    box-shadow: 0 0 0 1px rgba(255, 90, 110, 0.6), 0 8px 24px -8px rgba(239, 43, 69, 0.8);
+  }
+  .btn-red:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-ghost { @apply btn border border-panel-border bg-space-800/60 text-ink hover:border-accent-blueSoft/70 hover:bg-space-700/70; }
+  .btn-outline-red { @apply btn border border-accent-red/70 text-accent-red hover:bg-accent-red/10; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .input {
+    @apply w-full rounded-lg border border-panel-border bg-space-900/70 px-3 py-2 text-sm text-ink placeholder:text-ink-faint
+           focus:border-accent-blueSoft focus:outline-none focus:ring-1 focus:ring-accent-blueSoft/50;
+  }
+  .label { @apply mb-1 block text-xs font-medium text-ink-muted; }
+  .table-head { @apply border-b border-panel-line text-left text-xs font-medium text-ink-muted; }
+  .table-dark thead tr { @apply border-b border-panel-line text-left text-xs font-medium text-ink-muted; }
+  .table-dark th, .table-dark td { @apply px-4 py-2; }
+  .table-dark tbody tr { @apply border-b border-panel-line/50 transition-colors hover:bg-white/[0.035]; }
+  .row-hover { @apply transition-colors hover:bg-white/[0.035]; }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(76, 141, 255, 0.35) transparent; }
+}
+
+/* tilt surfaces (3D cards) */
+.tilt { transform-style: preserve-3d; will-change: transform; }
+.tilt-shine { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(400px circle at var(--sx, 50%) var(--sy, 50%), rgba(255,255,255,0.09), transparent 45%); }
+.tilt:hover .tilt-shine { opacity: 1; }
+
+.recharts-wrapper { font-size: 11px; }
+.recharts-cartesian-axis-tick-value { fill: #9fb0d6; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+
+/* ---------- premium motion layer ---------- */
+@property --holo-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes holo-spin { to { --holo-angle: 360deg; } }
+@keyframes sheen { from { transform: translateX(-120%) skewX(-18deg); } to { transform: translateX(220%) skewX(-18deg); } }
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 43, 69, 0.0), 0 18px 40px -18px rgba(239, 43, 69, 0.45); } 50% { box-shadow: 0 0 26px -2px rgba(239, 43, 69, 0.38), 0 18px 40px -18px rgba(239, 43, 69, 0.6); } }
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes scan { from { background-position: 0 -100%; } to { background-position: 0 200%; } }
+
+/* Rotating holographic rim on interactive (tilt) panels */
+.tilt::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0;
+  background: conic-gradient(from var(--holo-angle), transparent 0 40%, rgba(76, 141, 255, 0.95) 50%, rgba(239, 43, 69, 0.95) 60%, transparent 70% 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  transition: opacity .35s ease; animation: holo-spin 3.2s linear infinite;
+}
+.tilt:hover::after { opacity: 1; }
+
+/* Light sweep across primary buttons */
+.btn-red { position: relative; overflow: hidden; isolation: isolate; }
+.btn-red::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent); transform: translateX(-120%) skewX(-18deg);
+}
+.btn-red:hover::after { animation: sheen .9s ease; }
+
+/* Red alert panels breathe softly; holographic scanline drifts down */
+.panel-red { animation: breathe 4.5s ease-in-out infinite; }
+.panel-red::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .5;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 90, 110, 0.07) 50%, transparent 100%) 0 0 / 100% 40% no-repeat;
+  animation: scan 7s linear infinite;
+}
+.float-y { animation: float-y 5s ease-in-out infinite; }
+
+/* Depth for KPI numbers */
+.depth-text { text-shadow: 0 1px 0 rgba(255,255,255,.08), 0 8px 24px rgba(76, 141, 255, .28); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt::after, .panel-red, .panel-red::after, .btn-red:hover::after, .float-y { animation: none !important; }
+}
+
+
+/* ---------- premium polish ---------- */
+@keyframes shimmer-text { from { background-position: 200% 50%; } to { background-position: -200% 50%; } }
+.text-shimmer {
+  background: linear-gradient(100deg, #ef2b45 0%, #ff5a6e 30%, #ffd0d6 45%, #ff5a6e 60%, #ef2b45 100%) 0 50% / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer-text 6s linear infinite;
+}
+@keyframes skeleton-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.skeleton { position: relative; overflow: hidden; border-radius: 10px; background: rgba(120, 150, 255, 0.07); }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(150, 185, 255, 0.14), transparent); animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+:focus-visible { outline: none; box-shadow: 0 0 0 2px #030714, 0 0 0 4px rgba(76, 141, 255, 0.95), 0 0 18px 2px rgba(76, 141, 255, 0.55) !important; border-radius: 10px; }
+::selection { background: rgba(239, 43, 69, 0.45); color: #fff; }
+.btn-red { transition: transform .15s ease, box-shadow .25s ease, filter .2s ease; }
+.btn-red:hover { box-shadow: 0 0 0 1px rgba(255, 120, 140, 0.6), 0 10px 30px -8px rgba(239, 43, 69, 0.85); filter: brightness(1.08); }
+.btn-red:active { transform: translateY(1px) scale(0.98); }
+@media (prefers-reduced-motion: reduce) { .text-shimmer, .skeleton::after { animation: none !important; } }
