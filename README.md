@@ -4,6 +4,8 @@
 [![CI](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-3776ab) ![React 19](https://img.shields.io/badge/react-19-61dafb) ![PostgreSQL 16](https://img.shields.io/badge/postgresql-16-336791) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
+**Live demo:** https://saas-revenue-leakage-auditor.vercel.app (opens a read-only demo with synthetic data; no sign-in needed)
+
 An independent revenue-integrity and financial-analytics platform for SaaS businesses. From each customer's contracts, pricing rules and usage it works out what that customer should have been billed. It then reconciles this against invoices and payments, detects revenue leakage and other discrepancies, and measures customer and product profitability. Every figure is traceable to the stored records it came from.
 
 > **Status: v1.0.0.** All 14 specification phases and the production-hardening work are implemented and tested (see [Tests](#tests)). Production readiness is claimed only for what is evidenced in [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md); remaining limitations are listed under [Known limitations](#known-limitations).
