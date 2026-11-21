@@ -46,7 +46,7 @@ jobs:
           gpg --batch --decrypt --passphrase-fd 3 "$file" 3<<<"$BACKUP_PASSPHRASE" \
             | docker run --rm -i postgres:17 pg_restore --list > toc.txt
           grep -c "TABLE DATA" toc.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.skip != '1'
         with:
           name: db-backup-${{ github.run_id }}
