@@ -1,45 +1,137 @@
-# SaaS Revenue Assurance
-### Contract-to-Cash & Customer Unit Economics Auditor
+<div align="center">
 
-[![CI](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml)
-![Python 3.13](https://img.shields.io/badge/python-3.13-3776ab) ![React 19](https://img.shields.io/badge/react-19-61dafb) ![PostgreSQL 16](https://img.shields.io/badge/postgresql-16-336791) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+<img src="docs/assets/logo.svg" width="72" alt="SaaS Revenue Assurance logo" />
 
-**Live demo:** https://saas-revenue-leakage-auditor.vercel.app (opens a read-only demo with synthetic data; no sign-in needed)
+# SaaS Revenue Leakage Auditor
 
-An independent revenue-integrity and financial-analytics platform for SaaS businesses. From each customer's contracts, pricing rules and usage it works out what that customer should have been billed. It then reconciles this against invoices and payments, detects revenue leakage and other discrepancies, and measures customer and product profitability. Every figure is traceable to the stored records it came from.
+**Contract-to-Cash & Customer Unit Economics Auditor**
 
-> **Status: v1.0.0.** All 14 specification phases and the production-hardening work are implemented and tested (see [Tests](#tests)). Production readiness is claimed only for what is evidenced in [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md); remaining limitations are listed under [Known limitations](#known-limitations).
-> Specification: [`docs/PRODUCT_MASTER_SPECIFICATION.md`](docs/PRODUCT_MASTER_SPECIFICATION.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+Finds the revenue a SaaS business earned but never billed, or billed but never collected,<br/>and proves every number with the records behind it.
 
-| | |
-|---|---|
-| ![Executive overview](docs/screenshots/overview.jpg) | ![Money flow tunnel](docs/screenshots/reconciliation-money-flow.jpg) |
-| **Executive overview**: audited KPIs with formulas on the back of each card, 3D exception donut | **Reconciliation**: contract → expected → invoiced → paid, with leaks drawn from the stored audit |
-| ![Customer galaxy](docs/screenshots/customer-galaxy.jpg) | ![AI assistant](docs/screenshots/ai-assistant.jpg) |
-| **Customer galaxy**: size = MRR, colour = profitability, distance = margin | **AI investigation**: answers only from approved read-only queries, with the calculation shown |
+<br/>
 
-All screenshots show the synthetic demo dataset.
+[![Live demo](https://img.shields.io/badge/▶_Live_demo-open_now-ef2b45?style=for-the-badge)](https://saas-revenue-leakage-auditor.vercel.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/piyushT3003/SaaS-Revenue-Leakage-Auditor/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/piyushT3003/SaaS-Revenue-Leakage-Auditor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 
-## Architecture
+![Python](https://img.shields.io/badge/Python_3.13-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Three.js](https://img.shields.io/badge/Three.js-000000?logo=threedotjs&logoColor=white)
+![Power BI](https://img.shields.io/badge/Power_BI-F2C811?logo=powerbi&logoColor=black)
+![Vercel](https://img.shields.io/badge/Vercel-000000?logo=vercel&logoColor=white)
+
+[**Live demo**](https://saas-revenue-leakage-auditor.vercel.app) · [Features](#-features) · [Architecture](#-architecture) · [Quick start](#-quick-start) · [Quality](#-quality--testing) · [Docs](#-documentation)
+
+<br/>
+
+<img src="docs/screenshots/overview.jpg" alt="Executive overview dashboard" width="100%" />
+
+<sub>The live demo opens straight into a read-only workspace with **synthetic** data. No sign-up needed.</sub>
+
+</div>
+
+---
+
+## 💡 The problem
+
+SaaS revenue leaks quietly. A discount that should have expired keeps getting applied. A price increase never reaches the invoice. Usage above the allowance goes unbilled. A payment is recorded twice. Each case is small, but across hundreds of contracts they add up, and finance teams usually find them by accident.
+
+## ✅ What this does
+
+1. **Rebuilds what should have been billed.** It works from each customer's contract versions, pricing rules, discounts, allowances and usage, using exact decimal arithmetic.
+2. **Reconciles that against what was invoiced and paid.** Billing and payment reconciliation run as separate engines, and ambiguous matches go to review instead of being guessed.
+3. **Classifies every discrepancy into 8 anomaly types**, each with evidence, severity, an owner and a workflow. The same money is never counted twice.
+4. **Explains it.** Each exception can be traced from contract to rule to obligation to invoice. Root-cause clusters, prioritisation scores and an AI assistant that only reads data help you investigate.
+5. **Measures what each customer is actually worth.** Contribution margin by customer, product and segment, with a What-If simulator.
+
+> On the synthetic dataset, detection reaches **precision = recall = 1.0** across all 8 anomaly categories against 34 planted ground-truth cases. A monthly audit over 200 customers completes in about **1 second**.
+
+## 🖼️ Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/reconciliation-money-flow.jpg" alt="Money flow tunnel" /><br/><b>Reconciliation</b>: money flows contract → expected → invoiced → paid; under-billing drips out in red.</td>
+    <td width="50%"><img src="docs/screenshots/customer-galaxy.jpg" alt="Customer galaxy" /><br/><b>Customer galaxy</b>: every customer is a star. Size = MRR, colour = profitability, distance = margin.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/exceptions.jpg" alt="Exception management" /><br/><b>Exceptions</b>: prioritised findings with impact, severity, owners, root cause and evidence packs.</td>
+    <td width="50%"><img src="docs/screenshots/ai-assistant.jpg" alt="AI investigation assistant" /><br/><b>AI investigation</b>: answers come only from approved read-only queries, and each shows how it was calculated.</td>
+  </tr>
+</table>
+
+## ✨ Features
+
+<table>
+<tr><td valign="top" width="50%">
+
+#### 📥 Data onboarding
+- 14 datasets (CSV / XLSX), with downloadable templates
+- Column auto-detection, mapping, type and reference validation
+- Duplicate detection, **confirm before storing**, rollback
+- Row-level lineage on every record
+
+#### 🧮 Financial engine
+- Effective-dated contract and pricing-rule versions, plus proration
+- Per-unit, flat, graduated and volume tiers
+- Allowances, discounts and minimum commitments
+- `Decimal` arithmetic everywhere, with no floating-point money
+
+#### 🔍 Reconciliation & anomalies
+- Obligation-level billing match and independent payment reconciliation
+- Underbilling, overbilling, missing charges, duplicate invoices, discount drift, pricing mismatch, unbilled usage, payment discrepancies
+- Immutable, idempotent audit runs, with run-to-run comparison
+
+</td><td valign="top" width="50%">
+
+#### 🕵️ Investigation
+- Exception workflow: assign, notes, status, segregation of duties
+- **Revenue Evidence Graph** (2D and interactive 3D)
+- Root-cause clusters and transparent 0–100 priority scores
+- Tamper-evident evidence packs (PDF/XLSX + SHA-256)
+
+#### 🧪 Advanced assurance
+- **Historical Replay**: an audit as the data was known at the time
+- **Billing Rules Regression Lab**: propose → test → second-admin approval → dated activation
+- **Usage Meter Integrity**: control totals and sequence gaps
+- **What-If Simulator**: always labelled hypothetical, never changes data
+
+#### 🤖 AI assistant
+- 9 approved, read-only, tenant-scoped tools; never writes SQL
+- Refuses to change data, and shows the calculation behind each answer
+- Works without an API key; LLM planning is optional
+
+</td></tr>
+</table>
+
+**Also included**
+- **Analytics:** a Power BI-ready `reporting` schema with a read-only role, DAX measures and Power Query files ([analytics/](analytics/README.md)).
+- **Interface:** a WebGL interface with a 2D fallback for every 3D view, honouring reduced motion.
+- **Accounts:** password reset, idle sign-out, demo mode and a first-run **Get started** guide.
+- **Privacy:** company data export and a guarded erase.
+
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
   subgraph Browser
     SPA["React 19 SPA<br/>9 pages · 3D views with 2D fallbacks"]
   end
-  subgraph API["FastAPI (one process / one Vercel Function)"]
-    AUTH["Auth & RBAC<br/>httpOnly JWT, throttle, idle timeout"]
+  subgraph API["FastAPI · one process / one Vercel Function"]
+    AUTH["Auth & RBAC<br/>httpOnly JWT · throttle · idle timeout"]
     ING["Import pipeline<br/>validate → confirm → lineage"]
-    ENG["Calculation engine<br/>Decimal, effective-dated terms"]
-    REC["Billing & payment reconciliation"]
+    ENG["Calculation engine<br/>Decimal · effective-dated terms"]
+    REC["Billing & payment<br/>reconciliation"]
     EXC["Anomaly classification<br/>exceptions & evidence"]
     ADV["Replay · Evidence graph · Regression lab<br/>Root cause · What-If · Evidence packs"]
-    AI["AI assistant<br/>read-only registered tools"]
+    AI["AI assistant<br/>read-only tools"]
     CRON["Daily job<br/>monthly audit · housekeeping"]
   end
   DB[("PostgreSQL 16<br/>append-only results<br/>reporting schema")]
-  PBI["Power BI<br/>(powerbi_reader, read-only)"]
-  SPA -- "/api/v1 (same origin)" --> AUTH
+  PBI["Power BI<br/>read-only role"]
+  SPA -- "/api/v1 · same origin" --> AUTH
   AUTH --> ING & REC & EXC & ADV & AI
   ING --> ENG --> REC --> EXC
   CRON --> REC
@@ -47,110 +139,137 @@ flowchart LR
   DB --> PBI
 ```
 
-## What it does
-
-| Area | Capability |
+| Layer | Technology |
 |---|---|
-| **Data onboarding** | 14 datasets (CSV/XLSX), with:<ul><li>auto-detection and column mapping</li><li>type, enum and reference validation</li><li>duplicate detection</li><li>explicit confirmation before import</li><li>lineage on every record</li><li>safe rollback</li></ul> |
-| **Financial engine** | <ul><li>Contract and pricing-rule versioning, proration and mid-period amendments</li><li>Pricing models: per-unit, flat, graduated and volume tiers</li><li>Allowances, discounts and minimum commitments</li><li>Exact `Decimal` arithmetic throughout</li></ul> |
-| **Reconciliation** | <ul><li>Obligation-level billing match; ambiguous matches go to review and are never guessed</li><li>Independent payment reconciliation and ageing</li><li>Immutable, idempotent audit runs with run comparison</li></ul> |
-| **Anomaly detection** | 8 categories:<ul><li>underbilling and overbilling</li><li>missing charges and duplicate invoices</li><li>discount drift and pricing mismatches</li><li>unbilled usage and payment discrepancies</li></ul>Each exception has an exposure key, so the same money is never counted twice as leakage |
-| **Investigation** | <ul><li>Exception workflow: assign, notes, status, segregation of duties</li><li>Evidence Graph (2D and interactive 3D)</li><li>Root-cause clusters and transparent prioritization scores</li><li>Evidence packs (PDF/XLSX with a SHA-256 hash)</li></ul> |
-| **Advanced** | <ul><li>Historical Replay (*as known at the time* / *with today's data*)</li><li>Billing Rules Regression Lab (propose → test → approval by a different admin → effective-dated activation)</li><li>Usage Meter Integrity monitor</li><li>What-If Simulator (always labelled hypothetical)</li></ul> |
-| **AI Investigation Assistant** | <ul><li>Answers questions using 9 approved, read-only, tenant-scoped queries</li><li>Never writes SQL and refuses requests to change data</li><li>Shows "how this was calculated" for every answer</li><li>Works without an LLM key; optional Anthropic model planning</li></ul> |
-| **Analytics / Power BI** | <ul><li>`reporting` schema (star schema views plus engine snapshots)</li><li>Read-only `powerbi_reader` role</li><li>DAX measure library, Power Query scripts and theme</li><li>Analytical SQL and executed notebooks; see [`analytics/`](analytics/README.md)</li></ul> |
-| **Interface** | <ul><li>Nine pages: Overview, Reconciliation, Exceptions, Customers, Billing & Payments, Unit Economics, AI Investigation, Data Management, Settings</li><li>WebGL galaxy backdrop with a lit planet and bloom, a 3D revenue globe on sign-in, a 3D holographic AI core and a 3D evidence graph</li><li>Holographic panel rims and motion throughout</li><li>Falls back automatically to 2D when WebGL is unavailable or reduced motion is requested</li></ul> |
-| **Accounts** | <ul><li>Change password (signs out other devices)</li><li>Forgot password by email (SMTP or Brevo) or admin-issued one-time reset links</li><li>Idle sign-out with a clear notice</li><li>Optional demo mode: visitors open a read-only demo without signing in (`DEMO_AUTO_LOGIN`), with a banner and a way to sign in</li><li>A **Get started** guide for an empty workspace</li></ul> |
-| **Security** | <ul><li>bcrypt; JWT in an httpOnly `SameSite=Strict` cookie with server-side revocation</li><li>Login throttle shared through the database (works across serverless instances)</li><li>Role permissions enforced on the server</li><li>Append-only audit log and immutable results (DB triggers)</li><li>Security headers and CSP</li><li>Export formula-injection guard</li></ul>See [`docs/security/SECURITY_REVIEW.md`](docs/security/SECURITY_REVIEW.md) |
+| **Backend** | Python 3.13 · FastAPI · SQLAlchemy 2 · Alembic · Pydantic 2 · pandas · ReportLab · openpyxl |
+| **Database** | PostgreSQL 16: `NUMERIC` money, trigger-enforced immutability, `reporting` schema |
+| **Frontend** | React 19 · TypeScript · Vite · Tailwind CSS · TanStack Query · Framer Motion · Recharts |
+| **3D** | Three.js · React Three Fiber · drei, all lazy-loaded with 2D fallbacks |
+| **Analytics** | Power BI (DAX, Power Query) · SQL · Jupyter |
+| **Quality** | pytest · Vitest · Playwright · axe-core (WCAG 2.1 AA) · pip-audit · npm audit |
+| **Platform** | Vercel (Singapore) · Neon Postgres · GitHub Actions · Dependabot · Docker Compose |
 
-## Run it
+## 🚀 Quick start
 
-### One click (Windows)
-Double-click **`START_APP.bat`**. It uses Docker Desktop if it is running; otherwise it uses a local PostgreSQL 16 installation, your Python venv and Node. It generates `.env` secrets, loads the demo data, runs the six demo audits and serves the app at **http://localhost:5185**. Demo sign-in: `piyush@demo.local` / `Demo-Pass-2026`. Progress is logged to `start_app.log`.
+**Windows, one click:** double-click **`START_APP.bat`**, then open **http://localhost:5185** and sign in as `piyush@demo.local` / `Demo-Pass-2026`. The launcher:
+- uses Docker if it's running, or else a local or auto-installed PostgreSQL;
+- installs the dependencies;
+- loads the synthetic demo;
+- runs the six demo audits.
 
-### VS Code
-Double-click **`SETUP_VSCODE.bat`** once. It copies the shared configuration from `tools/vscode/` into `.vscode/`. Then open the project folder in VS Code and accept the recommended extensions.
-1. **First time:** `Ctrl+Shift+P` → **Tasks: Run Task** → **Setup: install dependencies**. This creates a Python 3.11+ `venv` and runs `npm install`.
-2. **Every time:** **Tasks: Run Task** → **▶ Start app**. This:
-   - starts a private PostgreSQL on `127.0.0.1:5433`; the binaries come from a system install or are added to `.pgenv` with conda on first use;
-   - runs the API with auto-reload;
-   - loads the demo users and runs the six demo audits once;
-   - starts the web app.
+<details>
+<summary><b>Docker</b></summary>
 
-   Then open **http://localhost:5185** and sign in as `piyush@demo.local` / `Demo-Pass-2026`.
-
-**Debugging:** use **Run and Debug → Full stack (debug)** for breakpoints in the API plus the app in Edge, or **Pytest: current file**.
-
-**Tests:** run **Tasks: Run Test Task** or use the Testing panel. Backend tests use the separate `sra_test` database.
-
-### Docker
-```powershell
-copy .env.example .env      # set JWT_SECRET (32+ chars), POSTGRES_PASSWORD, BOOTSTRAP_ADMIN_EMAIL
+```bash
+cp .env.example .env          # set JWT_SECRET (32+ chars), POSTGRES_PASSWORD, BOOTSTRAP_ADMIN_EMAIL
 docker compose up --build
 docker compose exec backend python -m backend.app.seed.cli --demo-password "<choose one>" --run-audits
 ```
 - **App:** http://localhost:5185
 - **API docs:** http://localhost:8085/docs
+</details>
 
-On first start the backend applies migrations, creates the admin account and loads the synthetic demo dataset. If you left `BOOTSTRAP_ADMIN_PASSWORD` empty, the admin's one-time password is printed in the backend log.
+<details>
+<summary><b>Manual (Python 3.11+, Node 20+, PostgreSQL 16)</b></summary>
 
-### Local development (Windows, PowerShell)
-Prerequisites: Python 3.11+, Node 20+, PostgreSQL 16.
-```powershell
-copy .env.example .env
-python -m venv venv; .\venv\Scripts\Activate.ps1
-pip install -r backend\requirements-dev.txt
-uvicorn backend.app.main:app --port 8085 --reload        # terminal 1
-
-cd frontend; npm install; npx vite --port 5185               # terminal 2 → http://localhost:5185
+```bash
+cp .env.example .env
+python -m venv venv && source venv/bin/activate      # Windows: .\venv\Scripts\Activate.ps1
+pip install -r backend/requirements-dev.txt
+uvicorn backend.app.main:app --port 8085 --reload     # terminal 1
+cd frontend && npm install && npx vite --port 5185    # terminal 2
+python -m backend.app.seed.cli --demo-password "<choose one>" --run-audits   # demo users + audits
 ```
-To create the optional demo users `piyush@demo.local` (Admin), `analyst@demo.local` and `viewer@demo.local`, run:
-```powershell
-python -m backend.app.seed.cli --demo-password "<choose one>" --run-audits
-```
+</details>
 
-### Deploy (Vercel + Neon, free tiers)
-See [`docs/deployment/VERCEL.md`](docs/deployment/VERCEL.md). The repository includes `vercel.json` and `pyproject.toml`; the backend runs as one Vercel Function and the built frontend is served from the CDN.
+<details>
+<summary><b>VS Code</b></summary>
 
-### Optional: language-model mode for the AI assistant
-Set `LLM_PROVIDER=anthropic`, `LLM_API_KEY` and `LLM_MODEL` in `.env`. If these are not set, the assistant uses its built-in deterministic engine.
+1. Run **`SETUP_VSCODE.bat`** once.
+2. Run the task **Setup: install dependencies**.
+3. From then on, run the task **▶ Start app**. It starts a private PostgreSQL on port 5433, the API with auto-reload and the web app.
 
-## Tests
+**Run and Debug → Full stack (debug)** gives you breakpoints in the API.
+</details>
 
-| Suite | Command | Result (22 Nov 2026) |
+<details>
+<summary><b>Deploy to Vercel + Neon (free tiers)</b></summary>
+
+`vercel.json` and `pyproject.toml` are included. The FastAPI backend runs as one Vercel Function, and the built frontend is served from the CDN. Step-by-step guide: [`docs/deployment/VERCEL.md`](docs/deployment/VERCEL.md).
+</details>
+
+## 🧪 Quality & testing
+
+| Suite | Result | What it proves |
 |---|---|---|
-| Backend (PostgreSQL `sra_test`, wiped each run) | `python -m pytest` | **108 passed** |
-| Frontend unit | `cd frontend; npm test` | 5 passed |
-| End-to-end, including the full spec workflow and WCAG 2.1 AA scans of every page (needs the running stack; adds records, so use a dev database) | `cd frontend; npx playwright install chromium; npm run e2e` | **29 passed** |
+| **Backend** (pytest, dedicated DB) | **108 passed** | All 15 specification financial tests, ground-truth precision/recall, replay reproducibility, approval separation of duties, simulation isolation, AI guardrails, security headers, data rights, scheduling |
+| **Browser E2E** (Playwright) | **29 passed** | Full workflow: upload → validate → import → audit → investigate → correct → re-audit → compare → export |
+| **Accessibility** (axe-core) | **10 / 10 pages** | No serious or critical WCAG 2.1 A/AA violations |
+| **Frontend unit** (Vitest) | **5 passed** | Component behaviour |
+| **Dependencies** | **0 known vulnerabilities** | pip-audit and npm audit, plus weekly Dependabot updates |
 
-The backend suite covers:
-- the financial tests from the specification
-- precision and recall against the 34 planted ground-truth anomalies: 1.0 in every category
-- replay reproducibility
-- regression-lab segregation of duties
-- simulation isolation, i.e. simulations never change stored data
-- AI guardrails
-- the reporting views reconciling to stored audits
-- read-only enforcement for the Power BI role
-- security headers
+Every push runs the backend tests, the frontend type check and build, the dependency audit and the browser E2E suite on GitHub Actions.
 
-## Known limitations
-- **No `.pbix` file is included.** Power BI Desktop was not available in the build environment. The model, measures, queries and a step-by-step build guide are in [`analytics/powerbi/`](analytics/powerbi/README.md).
-- **LLM path not tested live.** The AI assistant's language-model path is tested only against a scripted fake provider; no live model was called.
-- **No billing-system integrations.** There are no live connections to payment, bank or billing providers. Data enters through file imports.
-- **One currency, one company per deployment.** Contracts in other currencies are excluded from audits with a reason; there is no self-service sign-up for other companies.
-- **Not yet independently tested.** No external penetration test has been done, and no load test has been run against a hosted deployment.
-- **No two-factor authentication.**
+## 🔐 Security & operations
 
-## Operations
-- **Backups:** encrypted weekly backups and a tested restore procedure: [`docs/operations/BACKUP_AND_RESTORE.md`](docs/operations/BACKUP_AND_RESTORE.md).
-- **Scheduled work:** a daily job audits the previous month once it has closed and prunes expired sign-in records (`/api/v1/cron/daily`, protected by `CRON_SECRET`).
-- **Monitoring (optional):** Sentry error reporting for the API (`SENTRY_DSN`) and the browser (`SENTRY_FRONTEND_DSN`, sent through a same-origin tunnel); uptime checks against `/api/health/ready`.
-- **Email (optional):** password-reset links and alerts for failed audits and new high-severity exceptions (`EMAIL_PROVIDER`).
-- **Security:** see [`SECURITY.md`](SECURITY.md) and [`docs/security/SECURITY_REVIEW.md`](docs/security/SECURITY_REVIEW.md).
+- **Accounts:**
+  - bcrypt password hashing;
+  - JWT in an httpOnly `SameSite=Strict` cookie with server-side revocation;
+  - idle sign-out;
+  - a login throttle shared through the database.
+- **Integrity:**
+  - permissions enforced on the server for each role (admin / analyst / viewer);
+  - append-only audit results, enforced by database triggers;
+  - corrections void and reissue the record, never edit it.
+- **Web hardening:** strict CSP with no third-party origins, clickjacking and MIME protections, and spreadsheet formula-injection guards.
+- **Operations:**
+  - encrypted weekly backups with a [tested restore](docs/operations/BACKUP_AND_RESTORE.md);
+  - a daily scheduled audit;
+  - optional Sentry error monitoring and email alerts.
 
-## License
-[MIT](LICENSE) © 2026 Piyush Tandale.
+See [`SECURITY.md`](SECURITY.md) and the [security review](docs/security/SECURITY_REVIEW.md).
 
-## Synthetic data notice
-All customers, contracts, invoices, payments and anomalies in the demonstration dataset are **synthetic**. Results computed from them do not describe any real company and are not real savings.
+## 📁 Project structure
+
+```
+├── backend/app/         FastAPI application
+│   ├── analytics/       calculation engine & metrics
+│   ├── reconciliation/  audit runner, matching, payment reconciliation
+│   ├── anomaly_detection/  8-category classifier
+│   ├── replay/ · evidence_graph/ · regression/ · root_cause/ · simulation/ · usage_integrity/
+│   ├── ai/              read-only assistant tools & engine
+│   ├── ingestion/       14 dataset specs, validation, lineage
+│   └── api/             REST endpoints (/api/v1)
+├── backend/migrations/  Alembic migrations (0001–0007)
+├── backend/tests/       pytest suite
+├── frontend/src/        React app (pages, 3D components, design system)
+├── frontend/e2e/        Playwright + accessibility tests
+├── analytics/           Power BI model, DAX, Power Query, SQL, notebooks
+└── docs/                specification, report, deployment, operations, security
+```
+
+## 📚 Documentation
+
+| Document | Contents |
+|---|---|
+| [Implementation report](docs/IMPLEMENTATION_REPORT.md) | Modules, schema, APIs, test evidence, limitations |
+| [Business workflows](docs/workflows/WORKFLOWS.md) | Onboard → audit → investigate → correct → verify |
+| [Product specification](docs/PRODUCT_MASTER_SPECIFICATION.md) | The full product specification |
+| [Deployment guide](docs/deployment/VERCEL.md) | Vercel + Neon, environment variables, verification |
+| [Backup & restore](docs/operations/BACKUP_AND_RESTORE.md) | Encrypted backups and the tested restore procedure |
+| [Performance, accessibility, recovery](docs/testing/PERFORMANCE_ACCESSIBILITY_RECOVERY.md) | Measured results |
+| [Changelog](CHANGELOG.md) | Release notes |
+
+## ⚠️ Known limitations
+
+- **Power BI file:** no `.pbix` is included. The model, measures and a build guide are provided, but the report has not been tested in Power BI Desktop.
+- **Data sources:** data enters by file import only. There are no live connectors to billing, payment or banking systems.
+- **Scope:** one currency and one company per deployment. Contracts in other currencies are excluded from audits, with the reason shown.
+- **AI assistant:** the optional language-model mode has only been tested against a scripted provider.
+- **Not yet done:** an external penetration test, load testing of the hosted deployment, and two-factor authentication.
+
+## 📄 License & data notice
+
+Released under the [MIT License](LICENSE) © 2026 **Piyush Tandale**.
+
+All customers, contracts, invoices, payments and anomalies in the demo are **synthetic**. Results computed from them describe no real company and are not real savings.
