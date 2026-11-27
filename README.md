@@ -1,3 +1,11 @@
+<!-- banner -->
+<a href="https://saas-revenue-leakage-auditor.vercel.app">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="./.github/assets/banner-light.svg" />
+    <img src="./.github/assets/banner.svg" width="100%" alt="Project banner" />
+  </picture>
+</a>
+
 <div align="center">
 
 <img src="docs/assets/logo.svg" width="72" alt="SaaS Revenue Assurance logo" />
